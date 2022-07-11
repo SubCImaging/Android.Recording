@@ -9,13 +9,22 @@ using Android.Views;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using Android.Widget;
+using Android.Media;
+using Android.Content;
+using Java.IO;
+using Android.Hardware;
 
 namespace Android.Recording
 {
     [Activity(Label = "@string/app_name", Theme = "@style/AppTheme", MainLauncher = true)]
     public class MainActivity : AppCompatActivity
     {
+        private CameraDevice camera;
+        private CameraCaptureSession captureSession;
+        private AutoFitTextureView preview;
         private Button record;
+
+        private MediaRecorder recorder = new MediaRecorder();
 
         public static Task<CameraDevice> OpenCameraAsync(string cameraId, CameraManager cameraManager)
         {
@@ -65,6 +74,11 @@ namespace Android.Recording
         {
             Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
 
+            if (requestCode == 1)
+            {
+                // show premission window
+            }
+
             base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
         }
 
@@ -77,7 +91,7 @@ namespace Android.Recording
 
             // set up the camera
             // get the preview to display video
-            var preview = FindViewById<AutoFitTextureView>(Resource.Id.Preview);
+            preview = FindViewById<AutoFitTextureView>(Resource.Id.Preview);
             record = FindViewById<Button>(Resource.Id.video);
             record.Click += Record_Click;
             var cameraManager = (CameraManager)GetSystemService(CameraService);
@@ -88,11 +102,33 @@ namespace Android.Recording
             }
 
             // get the camera from the camera manager with the given ID
-            var camera = await OpenCameraAsync("0", cameraManager);
+            camera = await OpenCameraAsync("0", cameraManager);
 
+            await RefreshSessionAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture));
+        }
+
+        private File GetVideoFile(Context context)
+        {
+            string fileName = "video-" + DateTime.Now.ToString("yymmdd-hhmmss") + ".mp4"; //new filenamed based on date time
+            var file = new File(context.GetExternalFilesDir(null), fileName);
+            return file;
+        }
+
+        private void Record_Click(object sender, EventArgs e)
+        {
+            if (record.Text == "record")
+            {
+                record.Text = "stop";
+            }
+            else
+            {
+                record.Text = "record";
+            }
+        }
+
+        private async Task RefreshSessionAsync(CameraTemplate template, params Surface[] surfaces)
+        {
             var tcs = new TaskCompletionSource<bool>();
-
-            CameraCaptureSession captureSession = null;
 
             var failedHandler = new EventHandler<CameraCaptureSession>((s, e) =>
             {
@@ -114,15 +150,9 @@ namespace Android.Recording
             sessionCallback.Configured += configuredHandler;
             sessionCallback.ConfigureFailed += failedHandler;
 
-            var surface = new Surface(preview.SurfaceTexture);
-
-            var sessionSurfaces = new List<Surface>();
-
-            sessionSurfaces.Add(surface);
-
             try
             {
-                camera.CreateCaptureSession(sessionSurfaces, sessionCallback, handler);
+                camera.CreateCaptureSession(surfaces, sessionCallback, handler);
             }
             catch (Exception e)
             {
@@ -132,25 +162,35 @@ namespace Android.Recording
 
             await tcs.Task;
 
-            var builder = camera.CreateCaptureRequest(CameraTemplate.Preview);
+            var builder = camera.CreateCaptureRequest(template);
 
-            builder.AddTarget(surface);
+            foreach (var surface in surfaces)
+            {
+                builder.AddTarget(surface);
+            }
 
             var request = builder.Build();
 
             captureSession.SetRepeatingRequest(request, null, null);
         }
 
-        private void Record_Click(object sender, EventArgs e)
+        private void StartRecording()
         {
-            if (record.Text == "record")
-            {
-                record.Text = "stop";
-            }
-            else
-            {
-                record.Text = "record";
-            }
+            captureSession.Close();
+
+            recorder.SetAudioSource(AudioSource.Default);
+            recorder.SetVideoSource(VideoSource.Surface);
+            recorder.SetOutputFormat(OutputFormat.Mpeg4);
+
+            // get the file
+            var file = GetVideoFile(this);
+
+            recorder.SetOutputFile(file);
+            recorder.SetVideoEncodingBitRate(25_000);
+            recorder.SetVideoFrameRate(30);
+            recorder.SetVideoSize(1920, 1080);
+            recorder.SetVideoEncoder(VideoEncoder.H264);
+            recorder.Prepare();
         }
     }
 }
