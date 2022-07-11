@@ -119,10 +119,12 @@ namespace Android.Recording
             if (record.Text == "record")
             {
                 record.Text = "stop";
+                StartRecordingAsync();
             }
             else
             {
                 record.Text = "record";
+                recorder.Stop();
             }
         }
 
@@ -174,13 +176,16 @@ namespace Android.Recording
             captureSession.SetRepeatingRequest(request, null, null);
         }
 
-        private void StartRecording()
+        private async Task StartRecordingAsync()
         {
             captureSession.Close();
 
             recorder.SetAudioSource(AudioSource.Default);
             recorder.SetVideoSource(VideoSource.Surface);
             recorder.SetOutputFormat(OutputFormat.Mpeg4);
+
+            recorder.SetOnInfoListener(new InfoListener());
+            recorder.SetOnErrorListener(new ErrorListener());
 
             // get the file
             var file = GetVideoFile(this);
@@ -191,6 +196,10 @@ namespace Android.Recording
             recorder.SetVideoSize(1920, 1080);
             recorder.SetVideoEncoder(VideoEncoder.H264);
             recorder.Prepare();
+
+            await RefreshSessionAsync(CameraTemplate.Record, new Surface(preview.SurfaceTexture), recorder.Surface);
+
+            recorder.Start();
         }
     }
 }
