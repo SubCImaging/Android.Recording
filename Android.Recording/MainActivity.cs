@@ -8,12 +8,15 @@ using System;
 using Android.Views;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using Android.Widget;
 
 namespace Android.Recording
 {
     [Activity(Label = "@string/app_name", Theme = "@style/AppTheme", MainLauncher = true)]
     public class MainActivity : AppCompatActivity
     {
+        private Button record;
+
         public static Task<CameraDevice> OpenCameraAsync(string cameraId, CameraManager cameraManager)
         {
             // create a new background thread to open the camera on
@@ -75,6 +78,8 @@ namespace Android.Recording
             // set up the camera
             // get the preview to display video
             var preview = FindViewById<AutoFitTextureView>(Resource.Id.Preview);
+            record = FindViewById<Button>(Resource.Id.video);
+            record.Click += Record_Click;
             var cameraManager = (CameraManager)GetSystemService(CameraService);
 
             while (!preview.IsAvailable)
@@ -134,6 +139,18 @@ namespace Android.Recording
             var request = builder.Build();
 
             captureSession.SetRepeatingRequest(request, null, null);
+        }
+
+        private void Record_Click(object sender, EventArgs e)
+        {
+            if (record.Text == "record")
+            {
+                record.Text = "stop";
+            }
+            else
+            {
+                record.Text = "record";
+            }
         }
     }
 }

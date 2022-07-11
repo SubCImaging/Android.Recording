@@ -4074,22 +4074,25 @@ namespace Android.Recording
 			public const int useLogo = 2131230950;
 			
 			// aapt resource value: 0x7F0800E7
-			public const int view_offset_helper = 2131230951;
+			public const int video = 2131230951;
 			
 			// aapt resource value: 0x7F0800E8
-			public const int view_tree_saved_state_registry_owner = 2131230952;
+			public const int view_offset_helper = 2131230952;
 			
 			// aapt resource value: 0x7F0800E9
-			public const int visible = 2131230953;
+			public const int view_tree_saved_state_registry_owner = 2131230953;
 			
 			// aapt resource value: 0x7F0800EA
-			public const int visible_removing_fragment_view_tag = 2131230954;
+			public const int visible = 2131230954;
 			
 			// aapt resource value: 0x7F0800EB
-			public const int withText = 2131230955;
+			public const int visible_removing_fragment_view_tag = 2131230955;
 			
 			// aapt resource value: 0x7F0800EC
-			public const int wrap_content = 2131230956;
+			public const int withText = 2131230956;
+			
+			// aapt resource value: 0x7F0800ED
+			public const int wrap_content = 2131230957;
 			
 			static Id()
 			{
