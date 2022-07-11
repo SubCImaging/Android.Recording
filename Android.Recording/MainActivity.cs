@@ -194,7 +194,6 @@ namespace Android.Recording
         {
             captureSession.Close();
 
-            recorder.SetAudioSource(AudioSource.Default);
             recorder.SetVideoSource(VideoSource.Surface);
             recorder.SetOutputFormat(OutputFormat.Mpeg4);
 
@@ -209,7 +208,8 @@ namespace Android.Recording
                 file.CreateNewFile();
             }
 
-            recorder.SetOutputFile(file);
+            recorder.SetOutputFile(file.Path);
+
             recorder.SetVideoEncodingBitRate(25_000);
             recorder.SetVideoFrameRate(30);
             recorder.SetVideoSize(1920, 1080);
@@ -218,7 +218,7 @@ namespace Android.Recording
 
             await RefreshSessionAsync(CameraTemplate.Record, new Surface(preview.SurfaceTexture), recorder.Surface);
 
-            var o = new Observer(file);
+            var o = new Observer(file.Path);
             o.StartWatching();
 
             recorder.Error += Recorder_Error;
