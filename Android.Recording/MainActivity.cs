@@ -109,23 +109,37 @@ namespace Android.Recording
 
         private File GetVideoFile(Context context)
         {
-            string fileName = "video-" + DateTime.Now.ToString("yymmdd-hhmmss") + ".mp4"; //new filenamed based on date time
+            string fileName = "video-" + DateTime.Now.ToString("yyMMdd-hhmmss") + ".mp4"; //new filenamed based on date time
             var file = new File(context.GetExternalFilesDir(null), fileName);
+
+            System.Diagnostics.Debug.WriteLine($"{file}");
+
             return file;
         }
 
-        private void Record_Click(object sender, EventArgs e)
+        private async void Record_Click(object sender, EventArgs e)
         {
             if (record.Text == "record")
             {
                 record.Text = "stop";
-                StartRecordingAsync();
+                await StartRecordingAsync();
             }
             else
             {
                 record.Text = "record";
                 recorder.Stop();
+                await RefreshSessionAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture));
             }
+        }
+
+        private void Recorder_Error(object sender, MediaRecorder.ErrorEventArgs e)
+        {
+            System.Console.WriteLine(e.What);
+        }
+
+        private void Recorder_Info(object sender, MediaRecorder.InfoEventArgs e)
+        {
+            System.Console.WriteLine(e.What);
         }
 
         private async Task RefreshSessionAsync(CameraTemplate template, params Surface[] surfaces)
@@ -190,6 +204,11 @@ namespace Android.Recording
             // get the file
             var file = GetVideoFile(this);
 
+            if (!file.Exists())
+            {
+                file.CreateNewFile();
+            }
+
             recorder.SetOutputFile(file);
             recorder.SetVideoEncodingBitRate(25_000);
             recorder.SetVideoFrameRate(30);
@@ -198,6 +217,12 @@ namespace Android.Recording
             recorder.Prepare();
 
             await RefreshSessionAsync(CameraTemplate.Record, new Surface(preview.SurfaceTexture), recorder.Surface);
+
+            var o = new Observer(file);
+            o.StartWatching();
+
+            recorder.Error += Recorder_Error;
+            recorder.Info += Recorder_Info;
 
             recorder.Start();
         }
