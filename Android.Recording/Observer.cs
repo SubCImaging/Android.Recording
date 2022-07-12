@@ -13,7 +13,12 @@ namespace Android.Recording
 
         public override void OnEvent([GeneratedEnum] FileObserverEvents e, string path)
         {
-            System.Diagnostics.Debug.WriteLine($"{e} {path}");
+            if (e == FileObserverEvents.Modify)
+            {
+                return;
+            }
+
+            System.Diagnostics.Debug.WriteLine($"---> {e} {path}");
         }
     }
 }

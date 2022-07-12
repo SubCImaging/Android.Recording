@@ -67,8 +67,6 @@
     <Compile Include="CameraStateCallback.cs" />
     <Compile Include="ConfirmationDialog.cs" />
     <Compile Include="ErrorDialog.cs" />
-    <Compile Include="ErrorListener.cs" />
-    <Compile Include="InfoListener.cs" />
     <Compile Include="MainActivity.cs" />
     <Compile Include="Observer.cs" />
     <Compile Include="Resources\Resource.designer.cs" />

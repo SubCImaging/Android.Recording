@@ -107,10 +107,15 @@ namespace Android.Recording
             await RefreshSessionAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture));
         }
 
-        private File GetVideoFile(Context context)
+        private File GetVideoFile()
         {
             string fileName = "video-" + DateTime.Now.ToString("yyMMdd-hhmmss") + ".mp4"; //new filenamed based on date time
-            var file = new File(context.GetExternalFilesDir(null), fileName);
+
+            var dir = "/mnt/expand/6de52606-fcb4-4012-b568-9b2fd2488f58/Videos/v1";
+
+            // dir = context.GetExternalFilesDir(null);
+
+            var file = new File(dir, fileName);
 
             System.Diagnostics.Debug.WriteLine($"{file}");
 
@@ -134,12 +139,18 @@ namespace Android.Recording
 
         private void Recorder_Error(object sender, MediaRecorder.ErrorEventArgs e)
         {
-            System.Console.WriteLine(e.What);
+            System.Diagnostics.Debug.WriteLine("===> " + e.What);
         }
 
-        private void Recorder_Info(object sender, MediaRecorder.InfoEventArgs e)
+        private async void Recorder_Info(object sender, MediaRecorder.InfoEventArgs e)
         {
-            System.Console.WriteLine(e.What);
+            System.Diagnostics.Debug.WriteLine("Warning: " + e.What);
+
+            if (e.What == MediaRecorderInfo.MaxDurationReached)
+            {
+                recorder.Stop();
+                await StartRecordingAsync();
+            }
         }
 
         private async Task RefreshSessionAsync(CameraTemplate template, params Surface[] surfaces)
@@ -197,29 +208,27 @@ namespace Android.Recording
             recorder.SetVideoSource(VideoSource.Surface);
             recorder.SetOutputFormat(OutputFormat.Mpeg4);
 
-            recorder.SetOnInfoListener(new InfoListener());
-            recorder.SetOnErrorListener(new ErrorListener());
-
             // get the file
-            //var file = GetVideoFile(this);
+            var file = GetVideoFile().AbsoluteFile;
 
-            //if (!file.Exists())
-            //{
-            //    file.CreateNewFile();
-            //}
+            var dir = file.Parent;
 
-            recorder.SetOutputFile(GetVideoFile(this).AbsoluteFile.Path);
+            if (!System.IO.Directory.Exists(dir))
+            {
+                System.IO.Directory.CreateDirectory(dir);
+            }
 
-            recorder.SetVideoEncodingBitRate(25_000);
+            System.Diagnostics.Debug.WriteLine("Error: Starting to record : " + file.Path);
+
+            recorder.SetOutputFile(file.Path);
+            recorder.SetMaxDuration((int)TimeSpan.FromMinutes(1).TotalMilliseconds);
+            recorder.SetVideoEncodingBitRate(25_000_000);
             recorder.SetVideoFrameRate(30);
             recorder.SetVideoSize(1920, 1080);
             recorder.SetVideoEncoder(VideoEncoder.H264);
             recorder.Prepare();
 
             await RefreshSessionAsync(CameraTemplate.Record, new Surface(preview.SurfaceTexture), recorder.Surface);
-
-            //var o = new Observer(file.Path);
-            //o.StartWatching();
 
             recorder.Error += Recorder_Error;
             recorder.Info += Recorder_Info;
