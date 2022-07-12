@@ -5,13 +5,13 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProductVersion>8.0.30703</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{78CAC911-37F5-4B6A-9022-4D5DA652C6C6}</ProjectGuid>
+    <ProjectGuid>{C9C842C1-E9D5-465A-95CF-6ABDC096981B}</ProjectGuid>
     <ProjectTypeGuids>{EFBA0AD7-5A72-4C68-AF49-83D382785DCF};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <TemplateGuid>{122416d6-6b49-4ee2-a1e8-b825f31c79fe}</TemplateGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Android.Recording</RootNamespace>
-    <AssemblyName>Android.Recording</AssemblyName>
+    <RootNamespace>Android.ContinuousStills</RootNamespace>
+    <AssemblyName>Android.ContinuousStills</AssemblyName>
     <FileAlignment>512</FileAlignment>
     <Deterministic>True</Deterministic>
     <AndroidApplication>True</AndroidApplication>
@@ -66,13 +66,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AutoFitTextureView.cs" />
+    <Compile Include="CameraCaptureStillPictureSessionCallback.cs" />
     <Compile Include="CameraErrorArgs.cs" />
     <Compile Include="CameraSessionCallback.cs" />
     <Compile Include="CameraStateCallback.cs" />
-    <Compile Include="ConfirmationDialog.cs" />
-    <Compile Include="ErrorDialog.cs" />
     <Compile Include="MainActivity.cs" />
-    <Compile Include="Observer.cs" />
     <Compile Include="Resources\Resource.designer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
