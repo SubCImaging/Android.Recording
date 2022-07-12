@@ -17,7 +17,7 @@ using Android.Hardware;
 namespace Android.Recording
 {
     [Activity(Label = "@string/app_name", Theme = "@style/AppTheme", MainLauncher = true)]
-    public class MainActivity : AppCompatActivity
+    public class MainActivity : AppCompatActivity, MediaRecorder.IOnInfoListener
     {
         private CameraDevice camera;
         private CameraCaptureSession captureSession;
@@ -70,6 +70,18 @@ namespace Android.Recording
             return c;
         }
 
+        public async void OnInfo(MediaRecorder mr, [GeneratedEnum] MediaRecorderInfo what, int extra)
+        {
+            System.Diagnostics.Debug.WriteLine("Warning: " + what);
+
+            if (what == MediaRecorderInfo.MaxDurationReached)
+            {
+                recorder.Stop();
+
+                await StartRecordingAsync();
+            }
+        }
+
         public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
         {
             Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -111,7 +123,7 @@ namespace Android.Recording
         {
             string fileName = "video-" + DateTime.Now.ToString("yyMMdd-hhmmss") + ".mp4"; //new filenamed based on date time
 
-            var dir = "/mnt/expand/6de52606-fcb4-4012-b568-9b2fd2488f58/Videos/v1";
+            var dir = "/mnt/expand/6de52606-fcb4-4012-b568-9b2fd2488f58/Videos";
 
             // dir = context.GetExternalFilesDir(null);
 
@@ -142,16 +154,17 @@ namespace Android.Recording
             System.Diagnostics.Debug.WriteLine("===> " + e.What);
         }
 
-        private async void Recorder_Info(object sender, MediaRecorder.InfoEventArgs e)
-        {
-            System.Diagnostics.Debug.WriteLine("Warning: " + e.What);
+        //private async void Recorder_Info(object sender, MediaRecorder.InfoEventArgs e)
+        //{
+        //    System.Diagnostics.Debug.WriteLine("Warning: " + e.What);
 
-            if (e.What == MediaRecorderInfo.MaxDurationReached)
-            {
-                recorder.Stop();
-                await StartRecordingAsync();
-            }
-        }
+        //    if (e.What == MediaRecorderInfo.MaxDurationReached)
+        //    {
+        //        recorder.Stop();
+
+        //        await StartRecordingAsync();
+        //    }
+        //}
 
         private async Task RefreshSessionAsync(CameraTemplate template, params Surface[] surfaces)
         {
@@ -203,7 +216,7 @@ namespace Android.Recording
 
         private async Task StartRecordingAsync()
         {
-            captureSession.Close();
+            //captureSession.Close();
 
             recorder.SetVideoSource(VideoSource.Surface);
             recorder.SetOutputFormat(OutputFormat.Mpeg4);
@@ -222,6 +235,7 @@ namespace Android.Recording
 
             recorder.SetOutputFile(file.Path);
             recorder.SetMaxDuration((int)TimeSpan.FromMinutes(1).TotalMilliseconds);
+            recorder.SetOnInfoListener(this);
             recorder.SetVideoEncodingBitRate(25_000_000);
             recorder.SetVideoFrameRate(30);
             recorder.SetVideoSize(1920, 1080);
@@ -231,7 +245,7 @@ namespace Android.Recording
             await RefreshSessionAsync(CameraTemplate.Record, new Surface(preview.SurfaceTexture), recorder.Surface);
 
             recorder.Error += Recorder_Error;
-            recorder.Info += Recorder_Info;
+            //recorder.Info += Recorder_Info;
 
             recorder.Start();
         }
