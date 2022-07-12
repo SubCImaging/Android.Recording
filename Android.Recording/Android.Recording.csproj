@@ -65,6 +65,8 @@
     <Compile Include="CameraErrorArgs.cs" />
     <Compile Include="CameraSessionCallback.cs" />
     <Compile Include="CameraStateCallback.cs" />
+    <Compile Include="ConfirmationDialog.cs" />
+    <Compile Include="ErrorDialog.cs" />
     <Compile Include="ErrorListener.cs" />
     <Compile Include="InfoListener.cs" />
     <Compile Include="MainActivity.cs" />

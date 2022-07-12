@@ -201,14 +201,14 @@ namespace Android.Recording
             recorder.SetOnErrorListener(new ErrorListener());
 
             // get the file
-            var file = GetVideoFile(this);
+            //var file = GetVideoFile(this);
 
-            if (!file.Exists())
-            {
-                file.CreateNewFile();
-            }
+            //if (!file.Exists())
+            //{
+            //    file.CreateNewFile();
+            //}
 
-            recorder.SetOutputFile(file.Path);
+            recorder.SetOutputFile(GetVideoFile(this).AbsoluteFile.Path);
 
             recorder.SetVideoEncodingBitRate(25_000);
             recorder.SetVideoFrameRate(30);
@@ -218,8 +218,8 @@ namespace Android.Recording
 
             await RefreshSessionAsync(CameraTemplate.Record, new Surface(preview.SurfaceTexture), recorder.Surface);
 
-            var o = new Observer(file.Path);
-            o.StartWatching();
+            //var o = new Observer(file.Path);
+            //o.StartWatching();
 
             recorder.Error += Recorder_Error;
             recorder.Info += Recorder_Info;
