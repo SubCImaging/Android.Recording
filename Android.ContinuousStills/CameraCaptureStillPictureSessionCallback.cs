@@ -35,7 +35,7 @@ namespace Android.ContinuousStills
         /// <param name="result">result.</param>
         public override void OnCaptureCompleted(CameraCaptureSession session, CaptureRequest request, TotalCaptureResult result)
         {
-            main.TakePicture();
+            // main.TakePicture();
         }
     }
 }

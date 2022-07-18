@@ -22,6 +22,7 @@ namespace Android.ContinuousStills
         private CameraDevice camera;
         private CameraCaptureSession captureSession;
         private ImageReader imageReader;
+        private ImageSaver imageSaver;
         private Button picture;
         private AutoFitTextureView preview;
         private CaptureRequest.Builder stillCaptureBuilder;
@@ -86,8 +87,11 @@ namespace Android.ContinuousStills
         {
             if (null == camera) { return; }
             stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
+
             stillCaptureBuilder.AddTarget(imageReader.Surface);
-            captureSession.Capture(stillCaptureBuilder.Build(), new CameraCaptureStillPictureSessionCallback(this), null);
+            stillCaptureBuilder.AddTarget(new Surface(preview.SurfaceTexture));
+
+            captureSession.Capture(stillCaptureBuilder.Build(), imageSaver, null);
         }
 
         protected override async void OnCreate(Bundle savedInstanceState)
@@ -112,7 +116,11 @@ namespace Android.ContinuousStills
             // get the camera from the camera manager with the given ID
             camera = await OpenCameraAsync("0", cameraManager);
 
-            await RefreshSessionAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture));
+            imageReader = ImageReader.NewInstance(1920, 1080, Graphics.ImageFormatType.Yuv420888, 2);
+
+            imageSaver = new ImageSaver(imageReader, this);
+
+            await RefreshSessionAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture), imageReader.Surface);
         }
 
         private void Picture_Click(object sender, EventArgs e)
