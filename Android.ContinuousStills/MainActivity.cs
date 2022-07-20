@@ -19,8 +19,10 @@ namespace Android.ContinuousStills
     [Activity(Label = "@string/app_name", Theme = "@style/AppTheme", MainLauncher = true)]
     public class MainActivity : AppCompatActivity
     {
+        public Handler handler;
         private CameraDevice camera;
         private CameraCaptureSession captureSession;
+        private ImageSaver file;
         private ImageReader imageReader;
         private ImageSaver imageSaver;
         private Button picture;
@@ -83,15 +85,32 @@ namespace Android.ContinuousStills
             base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
         }
 
-        public void TakePicture()
+        public async void TakePicture()
         {
+            //System.Console.WriteLine($"Error: Take picture!");
+
             if (null == camera) { return; }
+
             stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
 
             stillCaptureBuilder.AddTarget(imageReader.Surface);
+
             stillCaptureBuilder.AddTarget(new Surface(preview.SurfaceTexture));
 
             captureSession.Capture(stillCaptureBuilder.Build(), imageSaver, null);
+            var file = imageSaver.GetStillFile().AbsoluteFile;
+
+            var dir = file.Parent;
+
+            if (!System.IO.Directory.Exists(dir))
+            {
+                System.IO.Directory.CreateDirectory(dir);
+            }
+
+            System.Diagnostics.Debug.WriteLine($"Error: Saving images : " + file.Path);
+
+            //var toasts = Toast.MakeText(this, " saved!", ToastLength.Short);
+            //toasts.Show();
         }
 
         protected override async void OnCreate(Bundle savedInstanceState)
@@ -100,12 +119,15 @@ namespace Android.ContinuousStills
             Xamarin.Essentials.Platform.Init(this, savedInstanceState);
             // Set our view from the "main" layout resource
             SetContentView(Resource.Layout.activity_main);
-
             // set up the camera
             // get the preview to display video
             preview = FindViewById<AutoFitTextureView>(Resource.Id.preview);
             picture = FindViewById<Button>(Resource.Id.picture);
             picture.Click += Picture_Click;
+            imageReader = ImageReader.NewInstance(1920, 1080, Graphics.ImageFormatType.Yuv420888, 2);
+
+            imageSaver = new ImageSaver(imageReader, this);
+
             var cameraManager = (CameraManager)GetSystemService(CameraService);
 
             while (!preview.IsAvailable)
@@ -115,17 +137,16 @@ namespace Android.ContinuousStills
 
             // get the camera from the camera manager with the given ID
             camera = await OpenCameraAsync("0", cameraManager);
-
-            imageReader = ImageReader.NewInstance(1920, 1080, Graphics.ImageFormatType.Yuv420888, 2);
-
-            imageSaver = new ImageSaver(imageReader, this);
-
             await RefreshSessionAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture), imageReader.Surface);
         }
 
         private void Picture_Click(object sender, EventArgs e)
         {
-            TakePicture();
+            for (int i = 0; i < 100; i++)
+            {
+                TakePicture();
+            }
+            System.Console.WriteLine("saved pic");
         }
 
         private async Task RefreshSessionAsync(CameraTemplate template, params Surface[] surfaces)

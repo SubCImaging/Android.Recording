@@ -28,6 +28,8 @@ namespace Android.Recording
 
         private CameraCaptureSession captureSession;
 
+        private int index = 0;
+        private int max = 10000;
         private AutoFitTextureView preview;
 
         private Button record;
@@ -119,13 +121,19 @@ namespace Android.Recording
 
         public async void OnInfo(MediaRecorder mr, [GeneratedEnum] MediaRecorderInfo what, int extra)
         {
-            System.Diagnostics.Debug.WriteLine("Warning: " + what);
+            System.Diagnostics.Debug.WriteLine($"Warning: " + what);
 
             if (what == MediaRecorderInfo.MaxDurationReached)
             {
                 recorder.Stop();
 
                 await StartRecordingAsync();
+            }
+            if (what == MediaRecorderInfo.MaxFilesizeReached)
+            {
+                var toast = Toast.MakeText(this, "Cannot record more than 4 GB!!", ToastLength.Long);
+                toast.Show();
+                System.Console.WriteLine($"Error: Cannot record more than 20 GB!!");
             }
         }
 
@@ -190,11 +198,16 @@ namespace Android.Recording
             string fileName = "video-" + DateTime.Now.ToString("yyMMdd-hhmmss") + ".mp4"; //new filenamed based on date time
 
             var dir = $"{StorageLocation}/{GetStoragePoint()}/Videos/";
-
-            var file = new File(dir, fileName);
+            //string incindex = $"{dir}/vid{index}";
+            //if (index >= max)
+            //{
+            //    ShellSync($"mkdir -p \"{incindex}\"");
+            //    ShellSync($"chmod -R 777 \"{dir}/vid{incindex}\"");
+            //}
+            //index++;
+            var file = new File(dir, fileName); // change "dir" into "incindex" to generate a folder each time
 
             System.Diagnostics.Debug.WriteLine($"{file}");
-
             return file;
         }
 
@@ -295,14 +308,15 @@ namespace Android.Recording
                 System.IO.Directory.CreateDirectory(dir);
             }
 
-            System.Diagnostics.Debug.WriteLine("Error: Starting to record : " + file.Path);
+            System.Diagnostics.Debug.WriteLine($"Error: Starting to record : " + file.Path);
 
             recorder.SetOutputFile(file.Path);
-            recorder.SetMaxDuration((int)TimeSpan.FromMinutes(1).TotalMilliseconds);
+            recorder.SetMaxDuration((int)TimeSpan.FromMinutes(10).TotalMilliseconds);
             recorder.SetOnInfoListener(this);
-            recorder.SetVideoEncodingBitRate(25_000_000);
+            recorder.SetVideoEncodingBitRate(100_000_000);
             recorder.SetVideoFrameRate(30);
-            recorder.SetVideoSize(1920, 1080);
+            recorder.SetVideoSize(3840, 2160);
+            recorder.SetMaxFileSize(21_474_836_480);
             recorder.SetVideoEncoder(VideoEncoder.H264);
             recorder.Prepare();
 

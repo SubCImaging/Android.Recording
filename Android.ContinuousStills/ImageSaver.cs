@@ -106,9 +106,22 @@ namespace Android.ContinuousStills
             image.Close();
         }
 
+        public File GetStillFile()
+        {
+            string fileName = "still-" + DateTime.Now.ToString("yyMMdd-hhmmss.fff") + ".png"; //new filenamed based on date time
+
+            var dir = $"{StorageLocation}/{GetStoragePoint()}/Stills/";
+
+            var file = new File(dir, fileName);
+
+            System.Diagnostics.Debug.WriteLine($"{file}");
+
+            return file;
+        }
+
         public override void OnCaptureCompleted(CameraCaptureSession session, CaptureRequest request, TotalCaptureResult result)
         {
-            var image = imageReader.AcquireLatestImage();
+            var image = imageReader.AcquireNextImage();
 
             var file = GetStillFile();
 
@@ -137,19 +150,6 @@ namespace Android.ContinuousStills
             }
 
             throw new System.IO.IOException("Could not find storage mount");
-        }
-
-        private File GetStillFile()
-        {
-            string fileName = "still-" + DateTime.Now.ToString("yyMMdd-hhmmss.fff") + ".png"; //new filenamed based on date time
-
-            var dir = $"{StorageLocation}/{GetStoragePoint()}/Stills/";
-
-            var file = new File(dir, fileName);
-
-            System.Diagnostics.Debug.WriteLine($"{file}");
-
-            return file;
         }
     }
 }
