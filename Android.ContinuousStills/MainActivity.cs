@@ -16,6 +16,7 @@ using Android.Hardware;
 using Android.Hardware.Camera2.Params;
 using Android.Graphics;
 using System.Linq;
+using Javax.Xml.Transform;
 
 namespace Android.ContinuousStills
 {
@@ -105,7 +106,7 @@ namespace Android.ContinuousStills
 
             stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
             stillCaptureBuilder.AddTarget(imageReader.Surface);
-            stillCaptureBuilder.AddTarget(new Surface(preview.SurfaceTexture));
+            // stillCaptureBuilder.AddTarget(new Surface(preview.SurfaceTexture));
 
             captureSession.Capture(stillCaptureBuilder.Build(), imageSaver, null);
         }
@@ -138,7 +139,51 @@ namespace Android.ContinuousStills
 
             imageSaver = new ImageSaver(imageReader, this);
             imageReader.SetOnImageAvailableListener(imageSaver, handler);
-            await RefreshSessionAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture), imageReader.Surface);
+            await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
+        }
+
+        private async Task InitializePreviewAsync(Surface previewSurface, params Surface[] surfaces)
+        {
+            var tcs = new TaskCompletionSource<bool>();
+
+            var failedHandler = new EventHandler<CameraCaptureSession>((s, e) =>
+            {
+                captureSession = e;
+                tcs.TrySetResult(false);
+            });
+
+            var configuredHandler = new EventHandler<CameraCaptureSession>((s, e) =>
+            {
+                captureSession = e;
+                tcs.TrySetResult(true);
+            });
+
+            var sessionCallbackThread = new HandlerThread("SessionCallbackThread");
+            sessionCallbackThread.Start();
+            var handler = new Android.OS.Handler(sessionCallbackThread.Looper);
+
+            var sessionCallback = new CameraSessionCallback();
+            sessionCallback.Configured += configuredHandler;
+            sessionCallback.ConfigureFailed += failedHandler;
+
+            try
+            {
+                camera.CreateCaptureSession(surfaces, sessionCallback, handler);
+            }
+            catch (Exception e)
+            {
+                tcs.TrySetResult(false);
+                throw e;
+            }
+            await tcs.Task;
+
+            var builder = camera.CreateCaptureRequest(CameraTemplate.Preview);
+
+            builder.AddTarget(previewSurface);
+
+            var request = builder.Build();
+
+            captureSession.SetRepeatingRequest(request, null, null);
         }
 
         private void Picture_Click(object sender, EventArgs e)
