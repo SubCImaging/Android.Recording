@@ -13,6 +13,9 @@ using Android.Media;
 using Android.Content;
 using Java.IO;
 using Android.Hardware;
+using Android.Hardware.Camera2.Params;
+using Android.Graphics;
+using System.Linq;
 
 namespace Android.ContinuousStills
 {
@@ -22,12 +25,21 @@ namespace Android.ContinuousStills
         public Handler handler;
         private CameraDevice camera;
         private CameraCaptureSession captureSession;
-        private ImageSaver file;
         private ImageReader imageReader;
         private ImageSaver imageSaver;
         private Button picture;
         private AutoFitTextureView preview;
         private CaptureRequest.Builder stillCaptureBuilder;
+
+        /// <summary>
+        /// Gets all characteristics of the camera system.
+        /// </summary>
+        public CameraCharacteristics Characteristics { get; private set; }
+
+        /// <summary>
+        /// Gets stream map for get resolutions for stills
+        /// </summary>
+        public StreamConfigurationMap StreamMap { get; private set; }
 
         public static Task<CameraDevice> OpenCameraAsync(string cameraId, CameraManager cameraManager)
         {
@@ -85,32 +97,17 @@ namespace Android.ContinuousStills
             base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
         }
 
-        public async void TakePicture()
+        public void TakePicture()
         {
             //System.Console.WriteLine($"Error: Take picture!");
 
             if (null == camera) { return; }
 
             stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
-
             stillCaptureBuilder.AddTarget(imageReader.Surface);
-
             stillCaptureBuilder.AddTarget(new Surface(preview.SurfaceTexture));
 
             captureSession.Capture(stillCaptureBuilder.Build(), imageSaver, null);
-            var file = imageSaver.GetStillFile().AbsoluteFile;
-
-            var dir = file.Parent;
-
-            if (!System.IO.Directory.Exists(dir))
-            {
-                System.IO.Directory.CreateDirectory(dir);
-            }
-
-            System.Diagnostics.Debug.WriteLine($"Error: Saving images : " + file.Path);
-
-            //var toasts = Toast.MakeText(this, " saved!", ToastLength.Short);
-            //toasts.Show();
         }
 
         protected override async void OnCreate(Bundle savedInstanceState)
@@ -124,9 +121,6 @@ namespace Android.ContinuousStills
             preview = FindViewById<AutoFitTextureView>(Resource.Id.preview);
             picture = FindViewById<Button>(Resource.Id.picture);
             picture.Click += Picture_Click;
-            imageReader = ImageReader.NewInstance(1920, 1080, Graphics.ImageFormatType.Yuv420888, 2);
-
-            imageSaver = new ImageSaver(imageReader, this);
 
             var cameraManager = (CameraManager)GetSystemService(CameraService);
 
@@ -137,15 +131,19 @@ namespace Android.ContinuousStills
 
             // get the camera from the camera manager with the given ID
             camera = await OpenCameraAsync("0", cameraManager);
+            Characteristics = cameraManager.GetCameraCharacteristics("0");
+            StreamMap = (StreamConfigurationMap)Characteristics.Get(CameraCharacteristics.ScalerStreamConfigurationMap);
+            var jpegSizes = StreamMap.GetOutputSizes((int)ImageFormatType.Jpeg);
+            imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 2);
+
+            imageSaver = new ImageSaver(imageReader, this);
+            imageReader.SetOnImageAvailableListener(imageSaver, handler);
             await RefreshSessionAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture), imageReader.Surface);
         }
 
         private void Picture_Click(object sender, EventArgs e)
         {
-            for (int i = 0; i < 100; i++)
-            {
-                TakePicture();
-            }
+            TakePicture();
             System.Console.WriteLine("saved pic");
         }
 

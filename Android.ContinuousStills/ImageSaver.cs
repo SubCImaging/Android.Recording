@@ -15,7 +15,7 @@ using System.Text;
 
 namespace Android.ContinuousStills
 {
-    public class ImageSaver : CameraCaptureSession.CaptureCallback
+    public class ImageSaver : CameraCaptureSession.CaptureCallback, ImageReader.IOnImageAvailableListener
     {
         /// <summary>
         /// The location of the SD card in the system.
@@ -24,6 +24,10 @@ namespace Android.ContinuousStills
 
         private readonly Context activity;
         private readonly ImageReader imageReader;
+
+        private int index = 0;
+
+        private int max = 1000;
 
         public ImageSaver(ImageReader imageReader, Context activity)
         {
@@ -106,33 +110,26 @@ namespace Android.ContinuousStills
             image.Close();
         }
 
-        public File GetStillFile()
-        {
-            string fileName = "still-" + DateTime.Now.ToString("yyMMdd-hhmmss.fff") + ".png"; //new filenamed based on date time
-
-            var dir = $"{StorageLocation}/{GetStoragePoint()}/Stills/";
-
-            var file = new File(dir, fileName);
-
-            System.Diagnostics.Debug.WriteLine($"{file}");
-
-            return file;
-        }
-
-        public override void OnCaptureCompleted(CameraCaptureSession session, CaptureRequest request, TotalCaptureResult result)
+        public void OnImageAvailable(ImageReader reader)
         {
             var image = imageReader.AcquireNextImage();
 
             var file = GetStillFile();
+            var dir = file.Parent;
+            if (!System.IO.Directory.Exists(dir))
+            {
+                System.IO.Directory.CreateDirectory(dir);
+            }
+            System.Diagnostics.Debug.WriteLine($"Error: Starting to capture: " + file.Path);
 
             WriteJpeg(image, file);
 
-            var toast = Toast.MakeText(activity, file.AbsolutePath + " saved!", ToastLength.Short);
-            toast.Show();
-
-            base.OnCaptureCompleted(session, request, result);
+            //var toast = Toast.MakeText(activity, file.AbsolutePath + " saved!", ToastLength.Short);
+            //toast.Show();
         }
 
+        //    base.OnCaptureCompleted(session, request, result);
+        //}
         /// <summary>
         /// Gets the <see cref="Guid" /> that represents the SD card in the Rayfin.
         /// </summary>
@@ -151,5 +148,37 @@ namespace Android.ContinuousStills
 
             throw new System.IO.IOException("Could not find storage mount");
         }
+
+        private File GetStillFile()
+        {
+            string fileName = "still-" + DateTime.Now.ToString("yyMMdd-hhmmss.fff") + ".jpg"; //new filenamed based on date time
+
+            var dir = $"{StorageLocation}/{GetStoragePoint()}/Stills/";
+
+            string incindex = $"{dir}/vid{index}";
+            if (index >= max)
+            {
+                ShellSync($"mkdir -p \"{incindex}\"");
+                ShellSync($"chmod -R 777 \"{dir}/vid{incindex}\"");
+            }
+            index++;
+
+            var file = new File(dir, fileName);
+
+            System.Diagnostics.Debug.WriteLine($"{file}");
+
+            return file;
+        }
+
+        //public override void OnCaptureCompleted(CameraCaptureSession session, CaptureRequest request, TotalCaptureResult result)
+        //{
+        //    var image = imageReader.AcquireNextImage();
+
+        //    var file = GetStillFile();
+
+        //    WriteJpeg(image, file);
+
+        //    var toast = Toast.MakeText(activity, file.AbsolutePath + " saved!", ToastLength.Short);
+        //    toast.Show();
     }
 }
