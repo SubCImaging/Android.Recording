@@ -28,6 +28,7 @@ namespace Android.ContinuousStills
         private CameraCaptureSession captureSession;
         private ImageReader imageReader;
         private ImageSaver imageSaver;
+        private int index = 0;
         private Button picture;
         private AutoFitTextureView preview;
         private CaptureRequest.Builder stillCaptureBuilder;
@@ -101,12 +102,12 @@ namespace Android.ContinuousStills
         public void TakePicture()
         {
             //System.Console.WriteLine($"Error: Take picture!");
-
+            //await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
             if (null == camera) { return; }
 
             stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
+
             stillCaptureBuilder.AddTarget(imageReader.Surface);
-            // stillCaptureBuilder.AddTarget(new Surface(preview.SurfaceTexture));
 
             captureSession.Capture(stillCaptureBuilder.Build(), imageSaver, null);
         }
@@ -142,7 +143,7 @@ namespace Android.ContinuousStills
             await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
         }
 
-        private async Task InitializePreviewAsync(Surface previewSurface, params Surface[] surfaces)
+        private async Task InitializePreviewAsync(params Surface[] surfaces)
         {
             var tcs = new TaskCompletionSource<bool>();
 
@@ -176,8 +177,8 @@ namespace Android.ContinuousStills
                 throw e;
             }
             await tcs.Task;
-
             var builder = camera.CreateCaptureRequest(CameraTemplate.Preview);
+            Surface previewSurface = new Surface(preview.SurfaceTexture);
 
             builder.AddTarget(previewSurface);
 
@@ -188,56 +189,65 @@ namespace Android.ContinuousStills
 
         private void Picture_Click(object sender, EventArgs e)
         {
-            TakePicture();
+            //for(int i = 0; i < 2000; i++)
+            //{
+            //    TakePicture();
+            //}
+
+            while (index >= 0)
+            {
+                TakePicture();
+            }
+            index++;
             System.Console.WriteLine("saved pic");
         }
 
-        private async Task RefreshSessionAsync(CameraTemplate template, params Surface[] surfaces)
-        {
-            var tcs = new TaskCompletionSource<bool>();
+        //private async Task RefreshSessionAsync(CameraTemplate template, params Surface[] surfaces)
+        //{
+        //    var tcs = new TaskCompletionSource<bool>();
 
-            var failedHandler = new EventHandler<CameraCaptureSession>((s, e) =>
-            {
-                captureSession = e;
-                tcs.TrySetResult(false);
-            });
+        //    var failedHandler = new EventHandler<CameraCaptureSession>((s, e) =>
+        //    {
+        //        captureSession = e;
+        //        tcs.TrySetResult(false);
+        //    });
 
-            var configuredHandler = new EventHandler<CameraCaptureSession>((s, e) =>
-            {
-                captureSession = e;
-                tcs.TrySetResult(true);
-            });
+        //    var configuredHandler = new EventHandler<CameraCaptureSession>((s, e) =>
+        //    {
+        //        captureSession = e;
+        //        tcs.TrySetResult(true);
+        //    });
 
-            var sessionCallbackThread = new HandlerThread("SessionCallbackThread");
-            sessionCallbackThread.Start();
-            var handler = new Android.OS.Handler(sessionCallbackThread.Looper);
+        //    var sessionCallbackThread = new HandlerThread("SessionCallbackThread");
+        //    sessionCallbackThread.Start();
+        //    var handler = new Android.OS.Handler(sessionCallbackThread.Looper);
 
-            var sessionCallback = new CameraSessionCallback();
-            sessionCallback.Configured += configuredHandler;
-            sessionCallback.ConfigureFailed += failedHandler;
+        //    var sessionCallback = new CameraSessionCallback();
+        //    sessionCallback.Configured += configuredHandler;
+        //    sessionCallback.ConfigureFailed += failedHandler;
 
-            try
-            {
-                camera.CreateCaptureSession(surfaces, sessionCallback, handler);
-            }
-            catch (Exception e)
-            {
-                tcs.TrySetResult(false);
-                throw e;
-            }
+        //    try
+        //    {
+        //        camera.CreateCaptureSession(surfaces, sessionCallback, handler);
+        //    }
+        //    catch (Exception e)
+        //    {
+        //        tcs.TrySetResult(false);
+        //        throw e;
+        //    }
 
-            await tcs.Task;
+        //    await tcs.Task;
 
-            var builder = camera.CreateCaptureRequest(template);
+        //    var builder = camera.CreateCaptureRequest(template);
 
-            foreach (var surface in surfaces)
-            {
-                builder.AddTarget(surface);
-            }
+        //    foreach (var surface in surfaces)
+        //    {
+        //        builder.AddTarget(surface);
+        //    }
 
-            var request = builder.Build();
+        //    var request = builder.Build();
 
-            captureSession.SetRepeatingRequest(request, null, null);
-        }
+        //    captureSession.SetRepeatingRequest(request, null, null);
+        //}
     }
 }

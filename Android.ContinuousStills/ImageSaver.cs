@@ -25,6 +25,7 @@ namespace Android.ContinuousStills
         private readonly Context activity;
         private readonly ImageReader imageReader;
 
+        private int folderIndex = 0;
         private int index = 0;
 
         private int max = 1000;
@@ -155,15 +156,20 @@ namespace Android.ContinuousStills
 
             var dir = $"{StorageLocation}/{GetStoragePoint()}/Stills/";
 
-            string incindex = $"{dir}/vid{index}";
+            string path = $"{dir}/pic{folderIndex}";
+
             if (index >= max)
             {
-                ShellSync($"mkdir -p \"{incindex}\"");
-                ShellSync($"chmod -R 777 \"{dir}/vid{incindex}\"");
+                index = 0;
+                folderIndex++;
+                path = $"{dir}/pic{folderIndex}";
+                ShellSync($"mkdir -p \"{path}\"");
+                ShellSync($"chmod -R 777 \"{path}\"");
             }
+
             index++;
 
-            var file = new File(dir, fileName);
+            var file = new File(path, fileName);
 
             System.Diagnostics.Debug.WriteLine($"{file}");
 
