@@ -29,6 +29,7 @@ namespace Android.ContinuousStills
         private ImageReader imageReader;
         private ImageSaver imageSaver;
         private int index = 0;
+        private int n_burst;
         private Button picture;
         private AutoFitTextureView preview;
         private CaptureRequest.Builder stillCaptureBuilder;
@@ -99,17 +100,37 @@ namespace Android.ContinuousStills
             base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
         }
 
-        public void TakePicture()
+        public void TakePicture(bool continueBurst)
         {
             //System.Console.WriteLine($"Error: Take picture!");
             //await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
             if (null == camera) { return; }
 
             stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
-
+            stillCaptureBuilder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
+            stillCaptureBuilder.Set(CaptureRequest.EdgeMode, (int)EdgeMode.Off);
+            stillCaptureBuilder.Set(CaptureRequest.NoiseReductionMode, (int)NoiseReductionMode.Off);
+            //stillCaptureBuilder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.StillCapture);
+            stillCaptureBuilder.Set(CaptureRequest.ColorCorrectionAberrationMode, (int)ColorCorrectionAberrationMode.Off);
+            stillCaptureBuilder.Set(CaptureRequest.ControlAfMode, (int)ControlAFMode.ContinuousPicture);
             stillCaptureBuilder.AddTarget(imageReader.Surface);
+            List<CaptureRequest> requests = new List<CaptureRequest>();
 
-            captureSession.Capture(stillCaptureBuilder.Build(), imageSaver, null);
+            var request = stillCaptureBuilder.Build();
+            //n_burst = 10000;
+            while (continueBurst)
+            {
+                // n_burst = 0;
+                n_burst++;
+                for (int i = 0; i <= n_burst; i++)
+                {
+                    requests.Add(request);
+                }
+            }
+            GC.SuppressFinalize(this);
+            GC.KeepAlive(this);
+            GC.RemoveMemoryPressure(n_burst);
+            captureSession.CaptureBurst(requests, imageSaver, handler);
         }
 
         protected override async void OnCreate(Bundle savedInstanceState)
@@ -189,16 +210,20 @@ namespace Android.ContinuousStills
 
         private void Picture_Click(object sender, EventArgs e)
         {
-            //for(int i = 0; i < 2000; i++)
+            //for (int i = 0; i <= 2000; i++)
             //{
             //    TakePicture();
             //}
 
-            while (index >= 0)
-            {
-                TakePicture();
-            }
-            index++;
+            //if (index <= 100000) { TakePicture(); }
+            //index++;
+            TakePicture(true);
+            //while (index >= 0)
+            //{
+            //    TakePicture();
+
+            //}
+            //index++;
             System.Console.WriteLine("saved pic");
         }
 
