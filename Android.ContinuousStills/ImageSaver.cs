@@ -1,10 +1,8 @@
 ﻿using Android.App;
 using Android.Content;
-using Android.Hardware.Camera2;
 using Android.Media;
 using Android.OS;
 using Android.Runtime;
-using Android.Views;
 using Android.Widget;
 using Java.IO;
 using System;
@@ -15,19 +13,16 @@ using System.Text;
 
 namespace Android.ContinuousStills
 {
-    public class CaptureCallback : CameraCaptureSession.CaptureCallback
-    {
-    }
-
     public class ImageSaver : Java.Lang.Object, ImageReader.IOnImageAvailableListener
     {
-        public event EventHandler<string> ImageSaved;
-
         private readonly Context activity;
+
         private readonly string baseDirectory;
+
         private readonly ImageReader imageReader;
 
         private int folderIndex = 0;
+
         private int index = 0;
 
         private int max = 1000;
@@ -38,6 +33,8 @@ namespace Android.ContinuousStills
             this.activity = activity;
             this.baseDirectory = baseDirectory;
         }
+
+        public event EventHandler<string> ImageSaved;
 
         public static bool SaveImage(File file, byte[] bytes)
         {
@@ -77,7 +74,9 @@ namespace Android.ContinuousStills
 
         public void OnImageAvailable(ImageReader reader)
         {
+            System.Diagnostics.Debug.WriteLine($"---> Acquiring image");
             var image = imageReader.AcquireNextImage();
+            System.Diagnostics.Debug.WriteLine($"+++> Image acquired");
 
             var file = GetStillFile();
             var dir = file.Parent;

@@ -230,9 +230,6 @@ namespace Android.ContinuousStills
 
         private void ImageSaver_ImageSaved(object sender, string e)
         {
-            var t = Toast.MakeText(this, $"{e} saved", ToastLength.Short);
-            t.Show();
-
             var freeExternalStorage = GetDiskSpaceRemaining();
 
             if (freeExternalStorage < 18759680)
