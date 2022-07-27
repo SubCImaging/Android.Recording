@@ -15,7 +15,11 @@ using System.Text;
 
 namespace Android.ContinuousStills
 {
-    public class ImageSaver : CameraCaptureSession.CaptureCallback, ImageReader.IOnImageAvailableListener
+    public class CaptureCallback : CameraCaptureSession.CaptureCallback
+    {
+    }
+
+    public class ImageSaver : Java.Lang.Object, ImageReader.IOnImageAvailableListener
     {
         public event EventHandler<string> ImageSaved;
 

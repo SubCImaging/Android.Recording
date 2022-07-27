@@ -35,8 +35,7 @@ namespace Android.ContinuousStills
         private CameraCaptureSession captureSession;
         private ImageReader imageReader;
         private ImageSaver imageSaver;
-        private int index = 0;
-        private int n_burst;
+
         private Button picture;
         private AutoFitTextureView preview;
         private CaptureRequest request;
@@ -156,12 +155,10 @@ namespace Android.ContinuousStills
 
         public void StartContinuous()
         {
-            if (null == camera)
+            if (camera == null)
             {
                 return;
             }
-
-            index = 0;
 
             stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
             stillCaptureBuilder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
@@ -173,7 +170,7 @@ namespace Android.ContinuousStills
 
             request = stillCaptureBuilder.Build();
 
-            captureSession.Capture(request, imageSaver, handler);
+            captureSession.Capture(request, new CaptureCallback(), handler);
         }
 
         protected override async void OnCreate(Bundle savedInstanceState)
@@ -246,7 +243,7 @@ namespace Android.ContinuousStills
 
             System.Diagnostics.Debug.WriteLine("Warning: Freespace: " + freeExternalStorage);
 
-            captureSession.Capture(request, imageSaver, handler);
+            captureSession.Capture(request, new CaptureCallback(), handler);
         }
 
         private async Task InitializePreviewAsync(params Surface[] surfaces)
