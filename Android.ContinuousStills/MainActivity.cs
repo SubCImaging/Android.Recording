@@ -100,37 +100,21 @@ namespace Android.ContinuousStills
             base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
         }
 
-        public void TakePicture(bool continueBurst)
+        public void StartContinuous()
         {
-            //System.Console.WriteLine($"Error: Take picture!");
-            //await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
             if (null == camera) { return; }
 
             stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
             stillCaptureBuilder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
             stillCaptureBuilder.Set(CaptureRequest.EdgeMode, (int)EdgeMode.Off);
             stillCaptureBuilder.Set(CaptureRequest.NoiseReductionMode, (int)NoiseReductionMode.Off);
-            //stillCaptureBuilder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.StillCapture);
             stillCaptureBuilder.Set(CaptureRequest.ColorCorrectionAberrationMode, (int)ColorCorrectionAberrationMode.Off);
             stillCaptureBuilder.Set(CaptureRequest.ControlAfMode, (int)ControlAFMode.ContinuousPicture);
             stillCaptureBuilder.AddTarget(imageReader.Surface);
-            List<CaptureRequest> requests = new List<CaptureRequest>();
 
             var request = stillCaptureBuilder.Build();
-            //n_burst = 10000;
-            while (continueBurst)
-            {
-                // n_burst = 0;
-                n_burst++;
-                for (int i = 0; i <= n_burst; i++)
-                {
-                    requests.Add(request);
-                }
-            }
-            GC.SuppressFinalize(this);
-            GC.KeepAlive(this);
-            GC.RemoveMemoryPressure(n_burst);
-            captureSession.CaptureBurst(requests, imageSaver, handler);
+
+            captureSession.Capture(request, imageSaver, handler);
         }
 
         protected override async void OnCreate(Bundle savedInstanceState)
@@ -160,8 +144,17 @@ namespace Android.ContinuousStills
             imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 2);
 
             imageSaver = new ImageSaver(imageReader, this);
+
+            imageSaver.ImageSaved += ImageSaver_ImageSaved;
+
             imageReader.SetOnImageAvailableListener(imageSaver, handler);
             await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
+        }
+
+        private void ImageSaver_ImageSaved(object sender, string e)
+        {
+            var t = Toast.MakeText(this, $"{e} saved", ToastLength.Short);
+            t.Show();
         }
 
         private async Task InitializePreviewAsync(params Surface[] surfaces)
@@ -210,69 +203,7 @@ namespace Android.ContinuousStills
 
         private void Picture_Click(object sender, EventArgs e)
         {
-            //for (int i = 0; i <= 2000; i++)
-            //{
-            //    TakePicture();
-            //}
-
-            //if (index <= 100000) { TakePicture(); }
-            //index++;
-            TakePicture(true);
-            //while (index >= 0)
-            //{
-            //    TakePicture();
-
-            //}
-            //index++;
-            System.Console.WriteLine("saved pic");
+            StartContinuous();
         }
-
-        //private async Task RefreshSessionAsync(CameraTemplate template, params Surface[] surfaces)
-        //{
-        //    var tcs = new TaskCompletionSource<bool>();
-
-        //    var failedHandler = new EventHandler<CameraCaptureSession>((s, e) =>
-        //    {
-        //        captureSession = e;
-        //        tcs.TrySetResult(false);
-        //    });
-
-        //    var configuredHandler = new EventHandler<CameraCaptureSession>((s, e) =>
-        //    {
-        //        captureSession = e;
-        //        tcs.TrySetResult(true);
-        //    });
-
-        //    var sessionCallbackThread = new HandlerThread("SessionCallbackThread");
-        //    sessionCallbackThread.Start();
-        //    var handler = new Android.OS.Handler(sessionCallbackThread.Looper);
-
-        //    var sessionCallback = new CameraSessionCallback();
-        //    sessionCallback.Configured += configuredHandler;
-        //    sessionCallback.ConfigureFailed += failedHandler;
-
-        //    try
-        //    {
-        //        camera.CreateCaptureSession(surfaces, sessionCallback, handler);
-        //    }
-        //    catch (Exception e)
-        //    {
-        //        tcs.TrySetResult(false);
-        //        throw e;
-        //    }
-
-        //    await tcs.Task;
-
-        //    var builder = camera.CreateCaptureRequest(template);
-
-        //    foreach (var surface in surfaces)
-        //    {
-        //        builder.AddTarget(surface);
-        //    }
-
-        //    var request = builder.Build();
-
-        //    captureSession.SetRepeatingRequest(request, null, null);
-        //}
     }
 }

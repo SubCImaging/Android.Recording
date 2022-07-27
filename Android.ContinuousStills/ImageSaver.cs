@@ -17,6 +17,8 @@ namespace Android.ContinuousStills
 {
     public class ImageSaver : CameraCaptureSession.CaptureCallback, ImageReader.IOnImageAvailableListener
     {
+        public event EventHandler<string> ImageSaved;
+
         /// <summary>
         /// The location of the SD card in the system.
         /// </summary>
@@ -117,20 +119,19 @@ namespace Android.ContinuousStills
 
             var file = GetStillFile();
             var dir = file.Parent;
+
             if (!System.IO.Directory.Exists(dir))
             {
                 System.IO.Directory.CreateDirectory(dir);
             }
+
             System.Diagnostics.Debug.WriteLine($"Error: Starting to capture: " + file.Path);
 
             WriteJpeg(image, file);
 
-            //var toast = Toast.MakeText(activity, file.AbsolutePath + " saved!", ToastLength.Short);
-            //toast.Show();
+            ImageSaved?.Invoke(this, file.AbsolutePath);
         }
 
-        //    base.OnCaptureCompleted(session, request, result);
-        //}
         /// <summary>
         /// Gets the <see cref="Guid" /> that represents the SD card in the Rayfin.
         /// </summary>
@@ -175,16 +176,5 @@ namespace Android.ContinuousStills
 
             return file;
         }
-
-        //public override void OnCaptureCompleted(CameraCaptureSession session, CaptureRequest request, TotalCaptureResult result)
-        //{
-        //    var image = imageReader.AcquireNextImage();
-
-        //    var file = GetStillFile();
-
-        //    WriteJpeg(image, file);
-
-        //    var toast = Toast.MakeText(activity, file.AbsolutePath + " saved!", ToastLength.Short);
-        //    toast.Show();
     }
 }
