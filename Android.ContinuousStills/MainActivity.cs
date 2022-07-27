@@ -24,6 +24,13 @@ namespace Android.ContinuousStills
     public class MainActivity : AppCompatActivity
     {
         public Handler handler;
+
+        /// <summary>
+        /// The location of the SD card in the system.
+        /// </summary>
+        private const string StorageLocation = "/mnt/expand";
+
+        private string baseDirectory;
         private CameraDevice camera;
         private CameraCaptureSession captureSession;
         private ImageReader imageReader;
@@ -32,6 +39,7 @@ namespace Android.ContinuousStills
         private int n_burst;
         private Button picture;
         private AutoFitTextureView preview;
+        private CaptureRequest request;
         private CaptureRequest.Builder stillCaptureBuilder;
 
         /// <summary>
@@ -88,6 +96,52 @@ namespace Android.ContinuousStills
             return c;
         }
 
+        /// <summary>
+        /// Runs a shell command on the Rayfin.
+        /// </summary>
+        /// <param name="command">The command you wish to execute.</param>
+        /// <param name="timeout">
+        /// The maximum time the command is allowed to run before timing out.
+        /// </param>
+        /// <returns>Anything that comes from stdout.</returns>
+        public static string ShellSync(string command, int timeout = 0)
+        {
+            try
+            {
+                // Run the command
+                var log = new System.Text.StringBuilder();
+                var process = Java.Lang.Runtime.GetRuntime().Exec(new[] { "su", "-c", command });
+                var bufferedReader = new BufferedReader(
+                new InputStreamReader(process.InputStream));
+
+                // Grab the results
+                if (timeout > 0)
+                {
+                    process.Wait(timeout);
+                    return string.Empty;
+                }
+
+                string line;
+
+                while ((line = bufferedReader.ReadLine()) != null)
+                {
+                    log.AppendLine(line);
+                }
+                return log.ToString();
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        public double GetDiskSpaceRemaining()
+        {
+            var fs = new StatFs(baseDirectory);
+            var free = fs.AvailableBlocksLong * fs.BlockSizeLong;
+            return free;
+        }
+
         public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
         {
             Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -102,7 +156,12 @@ namespace Android.ContinuousStills
 
         public void StartContinuous()
         {
-            if (null == camera) { return; }
+            if (null == camera)
+            {
+                return;
+            }
+
+            index = 0;
 
             stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
             stillCaptureBuilder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
@@ -112,7 +171,7 @@ namespace Android.ContinuousStills
             stillCaptureBuilder.Set(CaptureRequest.ControlAfMode, (int)ControlAFMode.ContinuousPicture);
             stillCaptureBuilder.AddTarget(imageReader.Surface);
 
-            var request = stillCaptureBuilder.Build();
+            request = stillCaptureBuilder.Build();
 
             captureSession.Capture(request, imageSaver, handler);
         }
@@ -143,7 +202,9 @@ namespace Android.ContinuousStills
             var jpegSizes = StreamMap.GetOutputSizes((int)ImageFormatType.Jpeg);
             imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 2);
 
-            imageSaver = new ImageSaver(imageReader, this);
+            baseDirectory = $"{ StorageLocation}/{ GetStoragePoint()}";
+
+            imageSaver = new ImageSaver(imageReader, this, baseDirectory);
 
             imageSaver.ImageSaved += ImageSaver_ImageSaved;
 
@@ -151,10 +212,41 @@ namespace Android.ContinuousStills
             await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
         }
 
+        /// <summary>
+        /// Gets the <see cref="Guid" /> that represents the SD card in the Rayfin.
+        /// </summary>
+        /// <returns>The <see cref="Guid" /> that represents the SD card in the Rayfin.</returns>
+        private static Guid GetStoragePoint()
+        {
+            var folders = ShellSync($@"ls {StorageLocation}").Split('\n');
+
+            foreach (string folder in folders)
+            {
+                if (Guid.TryParse(folder, out Guid result))
+                {
+                    return result;
+                }
+            }
+
+            throw new System.IO.IOException("Could not find storage mount");
+        }
+
         private void ImageSaver_ImageSaved(object sender, string e)
         {
             var t = Toast.MakeText(this, $"{e} saved", ToastLength.Short);
             t.Show();
+
+            var freeExternalStorage = GetDiskSpaceRemaining();
+
+            if (freeExternalStorage < 18759680)
+            {
+                System.Diagnostics.Debug.WriteLine("Information: Filled drive!!");
+                return;
+            }
+
+            System.Diagnostics.Debug.WriteLine("Warning: Freespace: " + freeExternalStorage);
+
+            captureSession.Capture(request, imageSaver, handler);
         }
 
         private async Task InitializePreviewAsync(params Surface[] surfaces)

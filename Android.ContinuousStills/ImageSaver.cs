@@ -19,12 +19,8 @@ namespace Android.ContinuousStills
     {
         public event EventHandler<string> ImageSaved;
 
-        /// <summary>
-        /// The location of the SD card in the system.
-        /// </summary>
-        private const string StorageLocation = "/mnt/expand";
-
         private readonly Context activity;
+        private readonly string baseDirectory;
         private readonly ImageReader imageReader;
 
         private int folderIndex = 0;
@@ -32,10 +28,11 @@ namespace Android.ContinuousStills
 
         private int max = 1000;
 
-        public ImageSaver(ImageReader imageReader, Context activity)
+        public ImageSaver(ImageReader imageReader, Context activity, string baseDirectory)
         {
             this.imageReader = imageReader;
             this.activity = activity;
+            this.baseDirectory = baseDirectory;
         }
 
         public static bool SaveImage(File file, byte[] bytes)
@@ -63,45 +60,6 @@ namespace Android.ContinuousStills
             }
         }
 
-        /// <summary>
-        /// Runs a shell command on the Rayfin.
-        /// </summary>
-        /// <param name="command">The command you wish to execute.</param>
-        /// <param name="timeout">
-        /// The maximum time the command is allowed to run before timing out.
-        /// </param>
-        /// <returns>Anything that comes from stdout.</returns>
-        public static string ShellSync(string command, int timeout = 0)
-        {
-            try
-            {
-                // Run the command
-                var log = new System.Text.StringBuilder();
-                var process = Java.Lang.Runtime.GetRuntime().Exec(new[] { "su", "-c", command });
-                var bufferedReader = new BufferedReader(
-                new InputStreamReader(process.InputStream));
-
-                // Grab the results
-                if (timeout > 0)
-                {
-                    process.Wait(timeout);
-                    return string.Empty;
-                }
-
-                string line;
-
-                while ((line = bufferedReader.ReadLine()) != null)
-                {
-                    log.AppendLine(line);
-                }
-                return log.ToString();
-            }
-            catch
-            {
-                return string.Empty;
-            }
-        }
-
         public static void WriteJpeg(Image image, File file)
         {
             var buffer = image.GetPlanes().First().Buffer;
@@ -125,37 +83,18 @@ namespace Android.ContinuousStills
                 System.IO.Directory.CreateDirectory(dir);
             }
 
-            System.Diagnostics.Debug.WriteLine($"Error: Starting to capture: " + file.Path);
+            System.Diagnostics.Debug.WriteLine($"Information: Starting to capture: " + file.Path);
 
             WriteJpeg(image, file);
 
             ImageSaved?.Invoke(this, file.AbsolutePath);
         }
 
-        /// <summary>
-        /// Gets the <see cref="Guid" /> that represents the SD card in the Rayfin.
-        /// </summary>
-        /// <returns>The <see cref="Guid" /> that represents the SD card in the Rayfin.</returns>
-        private static Guid GetStoragePoint()
-        {
-            var folders = ShellSync($@"ls {StorageLocation}").Split('\n');
-
-            foreach (string folder in folders)
-            {
-                if (Guid.TryParse(folder, out Guid result))
-                {
-                    return result;
-                }
-            }
-
-            throw new System.IO.IOException("Could not find storage mount");
-        }
-
         private File GetStillFile()
         {
             string fileName = "still-" + DateTime.Now.ToString("yyMMdd-hhmmss.fff") + ".jpg"; //new filenamed based on date time
 
-            var dir = $"{StorageLocation}/{GetStoragePoint()}/Stills/";
+            var dir = $"{baseDirectory}/Stills/";
 
             string path = $"{dir}/pic{folderIndex}";
 
@@ -164,8 +103,8 @@ namespace Android.ContinuousStills
                 index = 0;
                 folderIndex++;
                 path = $"{dir}/pic{folderIndex}";
-                ShellSync($"mkdir -p \"{path}\"");
-                ShellSync($"chmod -R 777 \"{path}\"");
+                MainActivity.ShellSync($"mkdir -p \"{path}\"");
+                MainActivity.ShellSync($"chmod -R 777 \"{path}\"");
             }
 
             index++;
