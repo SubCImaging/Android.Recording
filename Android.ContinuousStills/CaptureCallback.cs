@@ -5,6 +5,13 @@ namespace Android.ContinuousStills
 {
     public class CaptureCallback : CameraCaptureSession.CaptureCallback
     {
+        private readonly ImageSaver saver;
+
+        public CaptureCallback(ImageSaver saver)
+        {
+            this.saver = saver;
+        }
+
         public override void OnCaptureBufferLost(CameraCaptureSession session, CaptureRequest request, Surface target, long frameNumber)
         {
             System.Diagnostics.Debug.WriteLine($"Capture buffer lost");
@@ -38,6 +45,9 @@ namespace Android.ContinuousStills
         public override void OnCaptureSequenceCompleted(CameraCaptureSession session, int sequenceId, long frameNumber)
         {
             System.Diagnostics.Debug.WriteLine($"Sequence completed");
+
+            saver.SaveImage();
+
             base.OnCaptureSequenceCompleted(session, sequenceId, frameNumber);
         }
 

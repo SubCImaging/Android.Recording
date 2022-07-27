@@ -170,7 +170,7 @@ namespace Android.ContinuousStills
 
             request = stillCaptureBuilder.Build();
 
-            captureSession.Capture(request, new CaptureCallback(), handler);
+            captureSession.Capture(request, new CaptureCallback(imageSaver), handler);
         }
 
         protected override async void OnCreate(Bundle savedInstanceState)
@@ -199,13 +199,14 @@ namespace Android.ContinuousStills
             var jpegSizes = StreamMap.GetOutputSizes((int)ImageFormatType.Jpeg);
             imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 2);
 
-            baseDirectory = $"{ StorageLocation}/{ GetStoragePoint()}";
+            baseDirectory = $"{ StorageLocation}/{GetStoragePoint()}";
 
-            imageSaver = new ImageSaver(imageReader, this, baseDirectory);
+            imageSaver = new ImageSaver(baseDirectory, imageReader);
 
             imageSaver.ImageSaved += ImageSaver_ImageSaved;
+            imageSaver.ImageFailed += ImageSaver_ImageFailed;
 
-            imageReader.SetOnImageAvailableListener(imageSaver, handler);
+            // imageReader.SetOnImageAvailableListener(imageSaver, handler);
             await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
         }
 
@@ -228,6 +229,11 @@ namespace Android.ContinuousStills
             throw new System.IO.IOException("Could not find storage mount");
         }
 
+        private void ImageSaver_ImageFailed(object sender, EventArgs e)
+        {
+            captureSession.Capture(request, new CaptureCallback(imageSaver), handler);
+        }
+
         private void ImageSaver_ImageSaved(object sender, string e)
         {
             var freeExternalStorage = GetDiskSpaceRemaining();
@@ -240,7 +246,7 @@ namespace Android.ContinuousStills
 
             System.Diagnostics.Debug.WriteLine("Warning: Freespace: " + freeExternalStorage);
 
-            captureSession.Capture(request, new CaptureCallback(), handler);
+            captureSession.Capture(request, new CaptureCallback(imageSaver), handler);
         }
 
         private async Task InitializePreviewAsync(params Surface[] surfaces)

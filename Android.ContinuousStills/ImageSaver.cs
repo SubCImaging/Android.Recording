@@ -10,29 +10,27 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Android.ContinuousStills
 {
-    public class ImageSaver : Java.Lang.Object, ImageReader.IOnImageAvailableListener
+    public class ImageSaver//  : Java.Lang.Object, ImageReader.IOnImageAvailableListener
     {
-        private readonly Context activity;
-
         private readonly string baseDirectory;
-
-        private readonly ImageReader imageReader;
-
+        private readonly ImageReader reader;
         private int folderIndex = 0;
 
         private int index = 0;
 
         private int max = 1000;
 
-        public ImageSaver(ImageReader imageReader, Context activity, string baseDirectory)
+        public ImageSaver(string baseDirectory, ImageReader reader)
         {
-            this.imageReader = imageReader;
-            this.activity = activity;
             this.baseDirectory = baseDirectory;
+            this.reader = reader;
         }
+
+        public event EventHandler ImageFailed;
 
         public event EventHandler<string> ImageSaved;
 
@@ -72,10 +70,28 @@ namespace Android.ContinuousStills
             image.Close();
         }
 
-        public void OnImageAvailable(ImageReader reader)
+        public async void OnImageAvailable(ImageReader reader)
         {
             System.Diagnostics.Debug.WriteLine($"---> Acquiring image");
-            var image = imageReader.AcquireNextImage();
+            Image image = reader.AcquireNextImage();
+
+            var attempts = 0;
+
+            while (image == null)
+            {
+                image = reader.AcquireNextImage();
+                attempts++;
+
+                if (attempts > 20)
+                {
+                    System.Diagnostics.Debug.WriteLine($"+++> Unable to acquire image");
+                    ImageFailed?.Invoke(this, EventArgs.Empty);
+                    return;
+                }
+
+                await Task.Delay(50);
+            }
+
             System.Diagnostics.Debug.WriteLine($"+++> Image acquired");
 
             var file = GetStillFile();
@@ -86,11 +102,18 @@ namespace Android.ContinuousStills
                 System.IO.Directory.CreateDirectory(dir);
             }
 
-            System.Diagnostics.Debug.WriteLine($"Information: Starting to capture: " + file.Path);
+            System.Diagnostics.Debug.WriteLine($"Information: Starting to capture {index}: " + file.Path);
 
             WriteJpeg(image, file);
 
+            image.Close();
+
             ImageSaved?.Invoke(this, file.AbsolutePath);
+        }
+
+        internal void SaveImage()
+        {
+            OnImageAvailable(reader);
         }
 
         private File GetStillFile()
