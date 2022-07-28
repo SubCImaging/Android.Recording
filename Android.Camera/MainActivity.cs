@@ -1,8 +1,11 @@
 ﻿using Android.App;
+using Android.Graphics;
 using Android.Hardware.Camera2;
+using Android.Hardware.Camera2.Params;
 using Android.Media;
 using Android.OS;
 using Android.Runtime;
+using Android.Util;
 using Android.Views;
 using Android.Widget;
 using AndroidX.AppCompat.App;
@@ -22,12 +25,24 @@ namespace Android.Camera
 
         private CameraDevice camera;
 
+        private Button capture;
         private CameraCaptureSession captureSession;
 
+        private ImageReader imageReader;
+        private Size[] jpegSizes;
         private AutoFitTextureView preview;
         private Button record;
-
         private MediaRecorder recorder = new MediaRecorder();
+
+        /// <summary>
+        /// Gets all characteristics of the camera system.
+        /// </summary>
+        public CameraCharacteristics Characteristics { get; private set; }
+
+        /// <summary>
+        /// Gets stream map for get resolutions for stills
+        /// </summary>
+        public StreamConfigurationMap StreamMap { get; private set; }
 
         public static Task<CameraDevice> OpenCameraAsync(string cameraId, CameraManager cameraManager)
         {
@@ -149,6 +164,9 @@ namespace Android.Camera
             SetContentView(Resource.Layout.activity_main);
             preview = FindViewById<AutoFitTextureView>(Resource.Id.Preview);
             record = FindViewById<Button>(Resource.Id.video);
+            capture = FindViewById<Button>(Resource.Id.picture);
+
+            capture.Click += Capture_Click;
             record.Click += Record_Click;
             var cameraManager = (CameraManager)GetSystemService(CameraService);
 
@@ -159,6 +177,12 @@ namespace Android.Camera
 
             // get the camera from the camera manager with the given ID
             camera = await OpenCameraAsync("0", cameraManager);
+
+            Characteristics = cameraManager.GetCameraCharacteristics("0");
+            StreamMap = (StreamConfigurationMap)Characteristics.Get(CameraCharacteristics.ScalerStreamConfigurationMap);
+            jpegSizes = StreamMap.GetOutputSizes((int)ImageFormatType.Jpeg);
+            imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
+
             await InitializePreviewAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture));
         }
 
@@ -179,6 +203,11 @@ namespace Android.Camera
             }
 
             throw new System.IO.IOException("Could not find storage mount");
+        }
+
+        private async void Capture_Click(object sender, EventArgs e)
+        {
+            await InitializePreviewAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture), imageReader.Surface);
         }
 
         private File GetVideoFile()
