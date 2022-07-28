@@ -2,7 +2,6 @@
 using Android.Hardware.Camera2;
 using Android.Media;
 using Android.OS;
-
 using Android.Runtime;
 using Android.Views;
 using Android.Widget;
@@ -14,13 +13,21 @@ using System.Threading.Tasks;
 namespace Android.Camera
 {
     [Activity(Label = "@string/app_name", Theme = "@style/AppTheme", MainLauncher = true)]
-    public class MainActivity : AppCompatActivity
+    public class MainActivity : AppCompatActivity, MediaRecorder.IOnInfoListener
     {
+        /// <summary>
+        /// The location of the SD card in the system.
+        /// </summary>
+        private const string StorageLocation = "/mnt/expand";
+
         private CameraDevice camera;
 
         private CameraCaptureSession captureSession;
 
         private AutoFitTextureView preview;
+        private Button record;
+
+        private MediaRecorder recorder = new MediaRecorder();
 
         public static Task<CameraDevice> OpenCameraAsync(string cameraId, CameraManager cameraManager)
         {
@@ -66,6 +73,63 @@ namespace Android.Camera
             return c;
         }
 
+        /// <summary>
+        /// Runs a shell command on the Rayfin.
+        /// </summary>
+        /// <param name="command">The command you wish to execute.</param>
+        /// <param name="timeout">
+        /// The maximum time the command is allowed to run before timing out.
+        /// </param>
+        /// <returns>Anything that comes from stdout.</returns>
+        public static string ShellSync(string command, int timeout = 0)
+        {
+            try
+            {
+                // Run the command
+                var log = new System.Text.StringBuilder();
+                var process = Java.Lang.Runtime.GetRuntime().Exec(new[] { "su", "-c", command });
+                var bufferedReader = new BufferedReader(
+                new InputStreamReader(process.InputStream));
+
+                // Grab the results
+                if (timeout > 0)
+                {
+                    process.Wait(timeout);
+                    return string.Empty;
+                }
+
+                string line;
+
+                while ((line = bufferedReader.ReadLine()) != null)
+                {
+                    log.AppendLine(line);
+                }
+                return log.ToString();
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        public async void OnInfo(MediaRecorder mr, [GeneratedEnum] MediaRecorderInfo what, int extra)
+        {
+            System.Diagnostics.Debug.WriteLine($"Warning: " + what);
+
+            if (what == MediaRecorderInfo.MaxDurationReached)
+            {
+                recorder.Stop();
+
+                await StartRecordingAsync();
+            }
+            if (what == MediaRecorderInfo.MaxFilesizeReached)
+            {
+                var toast = Toast.MakeText(this, "Cannot record more than 4 GB!!", ToastLength.Long);
+                toast.Show();
+                System.Console.WriteLine($"Error: Cannot record more than 20 GB!!");
+            }
+        }
+
         public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
         {
             Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -84,7 +148,8 @@ namespace Android.Camera
 
             SetContentView(Resource.Layout.activity_main);
             preview = FindViewById<AutoFitTextureView>(Resource.Id.Preview);
-
+            record = FindViewById<Button>(Resource.Id.video);
+            record.Click += Record_Click;
             var cameraManager = (CameraManager)GetSystemService(CameraService);
 
             while (!preview.IsAvailable)
@@ -94,12 +159,49 @@ namespace Android.Camera
 
             // get the camera from the camera manager with the given ID
             camera = await OpenCameraAsync("0", cameraManager);
-            await InitializePreviewAsync(new Surface(preview.SurfaceTexture));
+            await InitializePreviewAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture));
         }
 
-        private async Task InitializePreviewAsync(params Surface[] surfaces)
+        /// <summary>
+        /// Gets the <see cref="Guid" /> that represents the SD card in the Rayfin.
+        /// </summary>
+        /// <returns>The <see cref="Guid" /> that represents the SD card in the Rayfin.</returns>
+        private static Guid GetStoragePoint()
         {
-            captureSession?.Close();
+            var folders = ShellSync($@"ls {StorageLocation}").Split('\n');
+
+            foreach (string folder in folders)
+            {
+                if (Guid.TryParse(folder, out Guid result))
+                {
+                    return result;
+                }
+            }
+
+            throw new System.IO.IOException("Could not find storage mount");
+        }
+
+        private File GetVideoFile()
+        {
+            string fileName = "video-" + DateTime.Now.ToString("yyMMdd-hhmmss") + ".mp4"; //new filenamed based on date time
+
+            var dir = $"{StorageLocation}/{GetStoragePoint()}/Videos/";
+            //string incindex = $"{dir}/vid{index}";
+            //if (index >= max)
+            //{
+            //    ShellSync($"mkdir -p \"{incindex}\"");
+            //    ShellSync($"chmod -R 777 \"{dir}/vid{incindex}\"");
+            //}
+            //index++;
+            var file = new File(dir, fileName); // change "dir" into "incindex" to generate a folder each time
+
+            System.Diagnostics.Debug.WriteLine($"{file}");
+            return file;
+        }
+
+        private async Task InitializePreviewAsync(CameraTemplate template, params Surface[] surfaces)
+        {
+            //captureSession?.Close();
 
             var tcs = new TaskCompletionSource<bool>();
             captureSession = null;
@@ -134,14 +236,68 @@ namespace Android.Camera
             }
 
             await tcs.Task;
-            var builder = camera.CreateCaptureRequest(CameraTemplate.Preview);
-            Surface previewSurface = new Surface(preview.SurfaceTexture);
-
-            builder.AddTarget(previewSurface);
-
+            var builder = camera.CreateCaptureRequest(template);
+            foreach (var surface in surfaces)
+            {
+                builder.AddTarget(surface);
+            }
             var request = builder.Build();
 
             captureSession.SetRepeatingRequest(request, null, null);
+        }
+
+        private async void Record_Click(object sender, EventArgs e)
+        {
+            if (record.Text == "record")
+            {
+                record.Text = "stop";
+                await StartRecordingAsync();
+            }
+            else
+            {
+                record.Text = "record";
+                recorder.Stop();
+                await InitializePreviewAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture));
+            }
+        }
+
+        private void Recorder_Error(object sender, MediaRecorder.ErrorEventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine("===> " + e.What);
+        }
+
+        private async Task StartRecordingAsync()
+        {
+            //captureSession.Close();
+
+            recorder.SetVideoSource(VideoSource.Surface);
+            recorder.SetOutputFormat(OutputFormat.Mpeg4);
+
+            // get the file
+            var file = GetVideoFile().AbsoluteFile;
+
+            var dir = file.Parent;
+
+            if (!System.IO.Directory.Exists(dir))
+            {
+                System.IO.Directory.CreateDirectory(dir);
+            }
+
+            System.Diagnostics.Debug.WriteLine($"Error: Starting to record : " + file.Path);
+
+            recorder.SetOutputFile(file.Path);
+            recorder.SetMaxDuration((int)TimeSpan.FromMinutes(10).TotalMilliseconds);
+            recorder.SetOnInfoListener(this);
+            recorder.SetVideoEncodingBitRate(100_000_000);
+            recorder.SetVideoFrameRate(30);
+            recorder.SetVideoSize(3840, 2160);
+            recorder.SetMaxFileSize(21_474_836_480);
+            recorder.SetVideoEncoder(VideoEncoder.H264);
+            recorder.Prepare();
+
+            await InitializePreviewAsync(CameraTemplate.Record, new Surface(preview.SurfaceTexture), recorder.Surface);
+            recorder.Error += Recorder_Error;
+            recorder.Start();
         }
     }
 }
