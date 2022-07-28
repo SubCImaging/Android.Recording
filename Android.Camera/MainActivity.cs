@@ -4,6 +4,7 @@ using Android.Media;
 using Android.OS;
 
 using Android.Runtime;
+using Android.Views;
 using Android.Widget;
 using AndroidX.AppCompat.App;
 using Java.IO;
@@ -15,24 +16,11 @@ namespace Android.Camera
     [Activity(Label = "@string/app_name", Theme = "@style/AppTheme", MainLauncher = true)]
     public class MainActivity : AppCompatActivity
     {
-        /// <summary>
-        /// The location of the SD card in the system.
-        /// </summary>
-        private const string StorageLocation = "/mnt/expand";
-
         private CameraDevice camera;
 
         private CameraCaptureSession captureSession;
 
-        private int index = 0;
-
-        private int max = 10000;
-
         private AutoFitTextureView preview;
-
-        private Button record;
-
-        private MediaRecorder recorder = new MediaRecorder();
 
         public static Task<CameraDevice> OpenCameraAsync(string cameraId, CameraManager cameraManager)
         {
@@ -78,58 +66,82 @@ namespace Android.Camera
             return c;
         }
 
-        /// <summary>
-        /// Runs a shell command on the Rayfin.
-        /// </summary>
-        /// <param name="command">The command you wish to execute.</param>
-        /// <param name="timeout">
-        /// The maximum time the command is allowed to run before timing out.
-        /// </param>
-        /// <returns>Anything that comes from stdout.</returns>
-        public static string ShellSync(string command, int timeout = 0)
-        {
-            try
-            {
-                // Run the command
-                var log = new System.Text.StringBuilder();
-                var process = Java.Lang.Runtime.GetRuntime().Exec(new[] { "su", "-c", command });
-                var bufferedReader = new BufferedReader(
-                new InputStreamReader(process.InputStream));
-
-                // Grab the results
-                if (timeout > 0)
-                {
-                    process.Wait(timeout);
-                    return string.Empty;
-                }
-
-                string line;
-
-                while ((line = bufferedReader.ReadLine()) != null)
-                {
-                    log.AppendLine(line);
-                }
-                return log.ToString();
-            }
-            catch
-            {
-                return string.Empty;
-            }
-        }
-
         public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
         {
             Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
-
+            if (requestCode == 1)
+            {
+                // show premission window
+            }
             base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
         }
 
-        protected override void OnCreate(Bundle savedInstanceState)
+        protected override async void OnCreate(Bundle savedInstanceState)
         {
             base.OnCreate(savedInstanceState);
             Xamarin.Essentials.Platform.Init(this, savedInstanceState);
             // Set our view from the "main" layout resource
+
             SetContentView(Resource.Layout.activity_main);
+            preview = FindViewById<AutoFitTextureView>(Resource.Id.Preview);
+
+            var cameraManager = (CameraManager)GetSystemService(CameraService);
+
+            while (!preview.IsAvailable)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(100));
+            }
+
+            // get the camera from the camera manager with the given ID
+            camera = await OpenCameraAsync("0", cameraManager);
+            await InitializePreviewAsync(new Surface(preview.SurfaceTexture));
+        }
+
+        private async Task InitializePreviewAsync(params Surface[] surfaces)
+        {
+            captureSession?.Close();
+
+            var tcs = new TaskCompletionSource<bool>();
+            captureSession = null;
+            var failedHandler = new EventHandler<CameraCaptureSession>((s, e) =>
+            {
+                captureSession = e;
+                tcs.TrySetResult(false);
+            });
+
+            var configuredHandler = new EventHandler<CameraCaptureSession>((s, e) =>
+            {
+                captureSession = e;
+                tcs.TrySetResult(true);
+            });
+
+            var sessionCallbackThread = new HandlerThread("SessionCallbackThread");
+            sessionCallbackThread.Start();
+            var handler = new Android.OS.Handler(sessionCallbackThread.Looper);
+
+            var sessionCallback = new CameraSessionCallback();
+            sessionCallback.Configured += configuredHandler;
+            sessionCallback.ConfigureFailed += failedHandler;
+
+            try
+            {
+                camera.CreateCaptureSession(surfaces, sessionCallback, handler);
+            }
+            catch (Exception e)
+            {
+                tcs.TrySetResult(false);
+                throw e;
+            }
+
+            await tcs.Task;
+            var builder = camera.CreateCaptureRequest(CameraTemplate.Preview);
+            Surface previewSurface = new Surface(preview.SurfaceTexture);
+
+            builder.AddTarget(previewSurface);
+
+            var request = builder.Build();
+
+            captureSession.SetRepeatingRequest(request, null, null);
         }
     }
 }
