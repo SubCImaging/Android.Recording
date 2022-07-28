@@ -57,8 +57,9 @@ namespace Android.ContinuousStills
                     {
                         System.Diagnostics.Debug.WriteLine("---> Running");
                         handler.Run();
-                        break;
                     }
+
+                    break;
                 }
 
                 await Task.Delay(50);
