@@ -1,74 +1,42 @@
 ﻿using Android.App;
 using Android.Content;
 using Android.Media;
-using Android.OS;
 using Android.Runtime;
 using Android.Widget;
 using Java.IO;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace Android.ContinuousStills
 {
-    public class ImageSaver//  : Java.Lang.Object, ImageReader.IOnImageAvailableListener
+    public class ImageSaver
     {
         private readonly string baseDirectory;
         private readonly ImageReader reader;
+        private int failed;
         private int folderIndex = 0;
 
+        private QueueSave handler;
         private int index = 0;
 
         private int max = 1000;
+        private ConcurrentQueue<(Image, File)> queue = new ConcurrentQueue<(Image, File)>();
 
         public ImageSaver(string baseDirectory, ImageReader reader)
         {
             this.baseDirectory = baseDirectory;
             this.reader = reader;
+
+            handler = new QueueSave("QueueSave", queue);
         }
 
         public event EventHandler ImageFailed;
 
         public event EventHandler<string> ImageSaved;
-
-        public static bool SaveImage(File file, byte[] bytes)
-        {
-            if (file == null)
-            {
-                throw new ArgumentNullException("File cannot be null");
-            }
-
-            using var output = new FileOutputStream(file);
-
-            try
-            {
-                output.Write(bytes);
-                return true;
-            }
-            catch (System.Exception e)
-            {
-                System.Console.WriteLine($"Error: Failed to save image {file.AbsolutePath} with exception: {e}");
-                return false;
-            }
-            finally
-            {
-                output?.Close();
-            }
-        }
-
-        public static void WriteJpeg(Image image, File file)
-        {
-            var buffer = image.GetPlanes().First().Buffer;
-            var bytes = new byte[buffer.Remaining()];
-            buffer.Get(bytes);
-
-            SaveImage(file, bytes);
-
-            image.Close();
-        }
 
         public async void OnImageAvailable(ImageReader reader)
         {
@@ -79,17 +47,36 @@ namespace Android.ContinuousStills
 
             while (image == null)
             {
-                image = reader.AcquireNextImage();
                 attempts++;
 
                 if (attempts > 20)
                 {
                     System.Diagnostics.Debug.WriteLine($"+++> Unable to acquire image");
-                    ImageFailed?.Invoke(this, EventArgs.Empty);
-                    return;
+
+                    if (queue.Count > 0)
+                    {
+                        System.Diagnostics.Debug.WriteLine("---> Running");
+                        handler.Run();
+                        break;
+                    }
                 }
 
                 await Task.Delay(50);
+
+                image = reader.AcquireNextImage();
+            }
+
+            if (image == null)
+            {
+                failed++;
+
+                if (failed > 20)
+                {
+                    failed = 0;
+                    ImageFailed?.Invoke(this, EventArgs.Empty);
+                }
+
+                return;
             }
 
             System.Diagnostics.Debug.WriteLine($"+++> Image acquired");
@@ -104,9 +91,13 @@ namespace Android.ContinuousStills
 
             System.Diagnostics.Debug.WriteLine($"Information: Starting to capture {index}: " + file.Path);
 
-            WriteJpeg(image, file);
+            queue.Enqueue((image, file));
 
-            image.Close();
+            if (queue.Count >= 10)
+            {
+                System.Diagnostics.Debug.WriteLine("---> Running");
+                handler.Run();
+            }
 
             ImageSaved?.Invoke(this, file.AbsolutePath);
         }

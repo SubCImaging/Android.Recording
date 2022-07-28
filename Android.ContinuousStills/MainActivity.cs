@@ -17,6 +17,7 @@ using Android.Hardware.Camera2.Params;
 using Android.Graphics;
 using System.Linq;
 using Javax.Xml.Transform;
+using Android.Util;
 
 namespace Android.ContinuousStills
 {
@@ -36,6 +37,8 @@ namespace Android.ContinuousStills
         private ImageReader imageReader;
         private ImageSaver imageSaver;
 
+        private bool isCancelled;
+        private Size[] jpegSizes;
         private Button picture;
         private AutoFitTextureView preview;
         private CaptureRequest request;
@@ -170,7 +173,7 @@ namespace Android.ContinuousStills
 
             request = stillCaptureBuilder.Build();
 
-            captureSession.Capture(request, new CaptureCallback(imageSaver), handler);
+            Take();
         }
 
         protected override async void OnCreate(Bundle savedInstanceState)
@@ -196,14 +199,12 @@ namespace Android.ContinuousStills
             camera = await OpenCameraAsync("0", cameraManager);
             Characteristics = cameraManager.GetCameraCharacteristics("0");
             StreamMap = (StreamConfigurationMap)Characteristics.Get(CameraCharacteristics.ScalerStreamConfigurationMap);
-            var jpegSizes = StreamMap.GetOutputSizes((int)ImageFormatType.Jpeg);
-            imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 2);
+            jpegSizes = StreamMap.GetOutputSizes((int)ImageFormatType.Jpeg);
+            imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
             baseDirectory = $"{ StorageLocation}/{GetStoragePoint()}";
 
             imageSaver = new ImageSaver(baseDirectory, imageReader);
-
-            imageSaver.ImageSaved += ImageSaver_ImageSaved;
             imageSaver.ImageFailed += ImageSaver_ImageFailed;
 
             // imageReader.SetOnImageAvailableListener(imageSaver, handler);
@@ -229,12 +230,7 @@ namespace Android.ContinuousStills
             throw new System.IO.IOException("Could not find storage mount");
         }
 
-        private void ImageSaver_ImageFailed(object sender, EventArgs e)
-        {
-            captureSession.Capture(request, new CaptureCallback(imageSaver), handler);
-        }
-
-        private void ImageSaver_ImageSaved(object sender, string e)
+        private async void C_SequenceComplete(object sender, EventArgs e)
         {
             var freeExternalStorage = GetDiskSpaceRemaining();
 
@@ -246,11 +242,37 @@ namespace Android.ContinuousStills
 
             System.Diagnostics.Debug.WriteLine("Warning: Freespace: " + freeExternalStorage);
 
-            captureSession.Capture(request, new CaptureCallback(imageSaver), handler);
+            if (isCancelled)
+            {
+                System.Diagnostics.Debug.WriteLine("Cancelled!!");
+                imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
+
+                baseDirectory = $"{ StorageLocation}/{GetStoragePoint()}";
+
+                imageSaver = new ImageSaver(baseDirectory, imageReader);
+                imageSaver.ImageFailed += ImageSaver_ImageFailed;
+
+                await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
+
+                isCancelled = false;
+
+                StartContinuous();
+                return;
+            }
+
+            Take();
+            imageSaver.SaveImage();
+        }
+
+        private void ImageSaver_ImageFailed(object sender, EventArgs e)
+        {
+            isCancelled = true;
         }
 
         private async Task InitializePreviewAsync(params Surface[] surfaces)
         {
+            captureSession?.Close();
+
             var tcs = new TaskCompletionSource<bool>();
 
             var failedHandler = new EventHandler<CameraCaptureSession>((s, e) =>
@@ -282,6 +304,7 @@ namespace Android.ContinuousStills
                 tcs.TrySetResult(false);
                 throw e;
             }
+
             await tcs.Task;
             var builder = camera.CreateCaptureRequest(CameraTemplate.Preview);
             Surface previewSurface = new Surface(preview.SurfaceTexture);
@@ -296,6 +319,14 @@ namespace Android.ContinuousStills
         private void Picture_Click(object sender, EventArgs e)
         {
             StartContinuous();
+        }
+
+        private void Take()
+        {
+            var c = new CaptureCallback();
+            c.SequenceComplete += C_SequenceComplete;
+
+            captureSession.Capture(request, c, handler);
         }
     }
 }
