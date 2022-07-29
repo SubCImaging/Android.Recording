@@ -65,7 +65,10 @@
     <Compile Include="CameraErrorArgs.cs" />
     <Compile Include="CameraSessionCallback.cs" />
     <Compile Include="CameraStateCallback.cs" />
+    <Compile Include="CaptureCallback.cs" />
+    <Compile Include="ImageSaver.cs" />
     <Compile Include="MainActivity.cs" />
+    <Compile Include="QueueSave.cs" />
     <Compile Include="Resources\Resource.designer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

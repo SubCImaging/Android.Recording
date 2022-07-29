@@ -18,21 +18,27 @@ namespace Android.Camera
     [Activity(Label = "@string/app_name", Theme = "@style/AppTheme", MainLauncher = true)]
     public class MainActivity : AppCompatActivity, MediaRecorder.IOnInfoListener
     {
+        public Handler handler;
+
         /// <summary>
         /// The location of the SD card in the system.
         /// </summary>
         private const string StorageLocation = "/mnt/expand";
 
+        private string baseDirectory;
         private CameraDevice camera;
 
         private Button capture;
         private CameraCaptureSession captureSession;
-
         private ImageReader imageReader;
+        private ImageSaver imageSaver;
+        private bool isCancelled;
         private Size[] jpegSizes;
         private AutoFitTextureView preview;
         private Button record;
         private MediaRecorder recorder = new MediaRecorder();
+        private CaptureRequest request;
+        private CaptureRequest.Builder stillCaptureBuilder;
 
         /// <summary>
         /// Gets all characteristics of the camera system.
@@ -127,6 +133,13 @@ namespace Android.Camera
             }
         }
 
+        public double GetDiskSpaceRemaining()
+        {
+            var fs = new StatFs(baseDirectory);
+            var free = fs.AvailableBlocksLong * fs.BlockSizeLong;
+            return free;
+        }
+
         public async void OnInfo(MediaRecorder mr, [GeneratedEnum] MediaRecorderInfo what, int extra)
         {
             System.Diagnostics.Debug.WriteLine($"Warning: " + what);
@@ -153,6 +166,26 @@ namespace Android.Camera
                 // show premission window
             }
             base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
+
+        public void StartContinuous()
+        {
+            if (camera == null)
+            {
+                return;
+            }
+
+            stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
+            stillCaptureBuilder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
+            stillCaptureBuilder.Set(CaptureRequest.EdgeMode, (int)EdgeMode.Off);
+            stillCaptureBuilder.Set(CaptureRequest.NoiseReductionMode, (int)NoiseReductionMode.Off);
+            stillCaptureBuilder.Set(CaptureRequest.ColorCorrectionAberrationMode, (int)ColorCorrectionAberrationMode.Off);
+            stillCaptureBuilder.Set(CaptureRequest.ControlAfMode, (int)ControlAFMode.ContinuousPicture);
+            stillCaptureBuilder.AddTarget(imageReader.Surface);
+
+            request = stillCaptureBuilder.Build();
+
+            Take();
         }
 
         protected override async void OnCreate(Bundle savedInstanceState)
@@ -183,6 +216,11 @@ namespace Android.Camera
             jpegSizes = StreamMap.GetOutputSizes((int)ImageFormatType.Jpeg);
             imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
+            baseDirectory = $"{ StorageLocation}/{GetStoragePoint()}";
+
+            imageSaver = new ImageSaver(baseDirectory, imageReader);
+            imageSaver.ImageFailed += ImageSaver_ImageFailed;
+
             await InitializePreviewAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture));
         }
 
@@ -205,9 +243,44 @@ namespace Android.Camera
             throw new System.IO.IOException("Could not find storage mount");
         }
 
+        private async void C_SequenceComplete(object sender, EventArgs e)
+        {
+            var freeExternalStorage = GetDiskSpaceRemaining();
+
+            if (freeExternalStorage < 18759680)
+            {
+                System.Diagnostics.Debug.WriteLine("Information: Filled drive!!");
+                return;
+            }
+
+            System.Diagnostics.Debug.WriteLine("Warning: Freespace: " + freeExternalStorage);
+
+            if (isCancelled)
+            {
+                System.Diagnostics.Debug.WriteLine("Cancelled!!");
+                imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
+
+                baseDirectory = $"{ StorageLocation}/{GetStoragePoint()}";
+
+                imageSaver = new ImageSaver(baseDirectory, imageReader);
+                imageSaver.ImageFailed += ImageSaver_ImageFailed;
+
+                await InitializePreviewAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture), imageReader.Surface);
+
+                isCancelled = false;
+
+                StartContinuous();
+                return;
+            }
+
+            Take();
+            imageSaver.SaveImage();
+        }
+
         private async void Capture_Click(object sender, EventArgs e)
         {
             await InitializePreviewAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture), imageReader.Surface);
+            StartContinuous();
         }
 
         private File GetVideoFile()
@@ -226,6 +299,11 @@ namespace Android.Camera
 
             System.Diagnostics.Debug.WriteLine($"{file}");
             return file;
+        }
+
+        private void ImageSaver_ImageFailed(object sender, EventArgs e)
+        {
+            isCancelled = true;
         }
 
         private async Task InitializePreviewAsync(CameraTemplate template, params Surface[] surfaces)
@@ -270,7 +348,7 @@ namespace Android.Camera
             {
                 builder.AddTarget(surface);
             }
-            var request = builder.Build();
+            request = builder.Build();
 
             captureSession.SetRepeatingRequest(request, null, null);
         }
@@ -327,6 +405,14 @@ namespace Android.Camera
             await InitializePreviewAsync(CameraTemplate.Record, new Surface(preview.SurfaceTexture), recorder.Surface);
             recorder.Error += Recorder_Error;
             recorder.Start();
+        }
+
+        private void Take()
+        {
+            var c = new CaptureCallback();
+            c.SequenceComplete += C_SequenceComplete;
+
+            captureSession.Capture(request, c, handler);
         }
     }
 }
