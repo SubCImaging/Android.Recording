@@ -18,26 +18,24 @@ namespace Android.Camera
     [Activity(Label = "@string/app_name", Theme = "@style/AppTheme", MainLauncher = true)]
     public class MainActivity : AppCompatActivity, MediaRecorder.IOnInfoListener
     {
-        public Handler handler;
-
         /// <summary>
         /// The location of the SD card in the system.
         /// </summary>
-        private const string StorageLocation = "/mnt/expand";
+        public const string StorageLocation = "/mnt/expand";
 
+        public CameraDevice camera;
+        public CameraCaptureSession captureSession;
+        public Handler handler;
+        public ImageSaver imageSaver;
+        public AutoFitTextureView preview;
+        public CaptureRequest request;
         private string baseDirectory;
-        private CameraDevice camera;
-
         private Button capture;
-        private CameraCaptureSession captureSession;
         private ImageReader imageReader;
-        private ImageSaver imageSaver;
         private bool isCancelled;
         private Size[] jpegSizes;
-        private AutoFitTextureView preview;
         private Button record;
         private MediaRecorder recorder = new MediaRecorder();
-        private CaptureRequest request;
         private CaptureRequest.Builder stillCaptureBuilder;
 
         /// <summary>
@@ -49,6 +47,25 @@ namespace Android.Camera
         /// Gets stream map for get resolutions for stills
         /// </summary>
         public StreamConfigurationMap StreamMap { get; private set; }
+
+        /// <summary>
+        /// Gets the <see cref="Guid" /> that represents the SD card in the Rayfin.
+        /// </summary>
+        /// <returns>The <see cref="Guid" /> that represents the SD card in the Rayfin.</returns>
+        public static Guid GetStoragePoint()
+        {
+            var folders = ShellSync($@"ls {StorageLocation}").Split('\n');
+
+            foreach (string folder in folders)
+            {
+                if (Guid.TryParse(folder, out Guid result))
+                {
+                    return result;
+                }
+            }
+
+            throw new System.IO.IOException("Could not find storage mount");
+        }
 
         public static Task<CameraDevice> OpenCameraAsync(string cameraId, CameraManager cameraManager)
         {
@@ -222,25 +239,6 @@ namespace Android.Camera
             imageSaver.ImageFailed += ImageSaver_ImageFailed;
 
             await InitializePreviewAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture));
-        }
-
-        /// <summary>
-        /// Gets the <see cref="Guid" /> that represents the SD card in the Rayfin.
-        /// </summary>
-        /// <returns>The <see cref="Guid" /> that represents the SD card in the Rayfin.</returns>
-        private static Guid GetStoragePoint()
-        {
-            var folders = ShellSync($@"ls {StorageLocation}").Split('\n');
-
-            foreach (string folder in folders)
-            {
-                if (Guid.TryParse(folder, out Guid result))
-                {
-                    return result;
-                }
-            }
-
-            throw new System.IO.IOException("Could not find storage mount");
         }
 
         private async void C_SequenceComplete(object sender, EventArgs e)

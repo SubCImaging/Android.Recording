@@ -103,7 +103,7 @@ namespace Android.Camera
             ImageSaved?.Invoke(this, file.AbsolutePath);
         }
 
-        internal void SaveImage()
+        public void SaveImage()
         {
             OnImageAvailable(reader);
         }

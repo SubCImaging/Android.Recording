@@ -13,23 +13,17 @@ using Android.Media;
 using Android.Content;
 using Java.IO;
 using Android.Hardware;
+using Android.Camera;
 
 namespace Android.Recording
 {
     [Activity(Label = "@string/app_name", Theme = "@style/AppTheme", MainLauncher = true)]
     public class MainActivity : AppCompatActivity, MediaRecorder.IOnInfoListener
     {
-        /// <summary>
-        /// The location of the SD card in the system.
-        /// </summary>
-        private const string StorageLocation = "/mnt/expand";
-
         private CameraDevice camera;
 
         private CameraCaptureSession captureSession;
 
-        private int index = 0;
-        private int max = 10000;
         private AutoFitTextureView preview;
 
         private Button record;
@@ -78,45 +72,6 @@ namespace Android.Recording
             stateCallback.Opened -= handler;
 
             return c;
-        }
-
-        /// <summary>
-        /// Runs a shell command on the Rayfin.
-        /// </summary>
-        /// <param name="command">The command you wish to execute.</param>
-        /// <param name="timeout">
-        /// The maximum time the command is allowed to run before timing out.
-        /// </param>
-        /// <returns>Anything that comes from stdout.</returns>
-        public static string ShellSync(string command, int timeout = 0)
-        {
-            try
-            {
-                // Run the command
-                var log = new System.Text.StringBuilder();
-                var process = Java.Lang.Runtime.GetRuntime().Exec(new[] { "su", "-c", command });
-                var bufferedReader = new BufferedReader(
-                new InputStreamReader(process.InputStream));
-
-                // Grab the results
-                if (timeout > 0)
-                {
-                    process.Wait(timeout);
-                    return string.Empty;
-                }
-
-                string line;
-
-                while ((line = bufferedReader.ReadLine()) != null)
-                {
-                    log.AppendLine(line);
-                }
-                return log.ToString();
-            }
-            catch
-            {
-                return string.Empty;
-            }
         }
 
         public async void OnInfo(MediaRecorder mr, [GeneratedEnum] MediaRecorderInfo what, int extra)
@@ -174,30 +129,11 @@ namespace Android.Recording
             await RefreshSessionAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture));
         }
 
-        /// <summary>
-        /// Gets the <see cref="Guid" /> that represents the SD card in the Rayfin.
-        /// </summary>
-        /// <returns>The <see cref="Guid" /> that represents the SD card in the Rayfin.</returns>
-        private static Guid GetStoragePoint()
-        {
-            var folders = ShellSync($@"ls {StorageLocation}").Split('\n');
-
-            foreach (string folder in folders)
-            {
-                if (Guid.TryParse(folder, out Guid result))
-                {
-                    return result;
-                }
-            }
-
-            throw new System.IO.IOException("Could not find storage mount");
-        }
-
         private File GetVideoFile()
         {
             string fileName = "video-" + DateTime.Now.ToString("yyMMdd-hhmmss") + ".mp4"; //new filenamed based on date time
 
-            var dir = $"{StorageLocation}/{GetStoragePoint()}/Videos/";
+            var dir = $"{Android.Camera.MainActivity.StorageLocation}/{Android.Camera.MainActivity.GetStoragePoint()}/Videos/";
             //string incindex = $"{dir}/vid{index}";
             //if (index >= max)
             //{

@@ -18,6 +18,7 @@ using Android.Graphics;
 using System.Linq;
 using Javax.Xml.Transform;
 using Android.Util;
+using Android.Camera;
 
 namespace Android.ContinuousStills
 {
@@ -25,11 +26,6 @@ namespace Android.ContinuousStills
     public class MainActivity : AppCompatActivity
     {
         public Handler handler;
-
-        /// <summary>
-        /// The location of the SD card in the system.
-        /// </summary>
-        private const string StorageLocation = "/mnt/expand";
 
         private string baseDirectory;
         private CameraDevice camera;
@@ -98,45 +94,6 @@ namespace Android.ContinuousStills
             return c;
         }
 
-        /// <summary>
-        /// Runs a shell command on the Rayfin.
-        /// </summary>
-        /// <param name="command">The command you wish to execute.</param>
-        /// <param name="timeout">
-        /// The maximum time the command is allowed to run before timing out.
-        /// </param>
-        /// <returns>Anything that comes from stdout.</returns>
-        public static string ShellSync(string command, int timeout = 0)
-        {
-            try
-            {
-                // Run the command
-                var log = new System.Text.StringBuilder();
-                var process = Java.Lang.Runtime.GetRuntime().Exec(new[] { "su", "-c", command });
-                var bufferedReader = new BufferedReader(
-                new InputStreamReader(process.InputStream));
-
-                // Grab the results
-                if (timeout > 0)
-                {
-                    process.Wait(timeout);
-                    return string.Empty;
-                }
-
-                string line;
-
-                while ((line = bufferedReader.ReadLine()) != null)
-                {
-                    log.AppendLine(line);
-                }
-                return log.ToString();
-            }
-            catch
-            {
-                return string.Empty;
-            }
-        }
-
         public double GetDiskSpaceRemaining()
         {
             var fs = new StatFs(baseDirectory);
@@ -184,7 +141,7 @@ namespace Android.ContinuousStills
             SetContentView(Resource.Layout.activity_main);
             // set up the camera
             // get the preview to display video
-            preview = FindViewById<AutoFitTextureView>(Resource.Id.preview);
+            preview = FindViewById<AutoFitTextureView>(Resource.Id.Preview);
             picture = FindViewById<Button>(Resource.Id.picture);
             picture.Click += Picture_Click;
 
@@ -202,32 +159,13 @@ namespace Android.ContinuousStills
             jpegSizes = StreamMap.GetOutputSizes((int)ImageFormatType.Jpeg);
             imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
-            baseDirectory = $"{ StorageLocation}/{GetStoragePoint()}";
+            baseDirectory = $"{ Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}";
 
             imageSaver = new ImageSaver(baseDirectory, imageReader);
             imageSaver.ImageFailed += ImageSaver_ImageFailed;
 
             // imageReader.SetOnImageAvailableListener(imageSaver, handler);
             await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
-        }
-
-        /// <summary>
-        /// Gets the <see cref="Guid" /> that represents the SD card in the Rayfin.
-        /// </summary>
-        /// <returns>The <see cref="Guid" /> that represents the SD card in the Rayfin.</returns>
-        private static Guid GetStoragePoint()
-        {
-            var folders = ShellSync($@"ls {StorageLocation}").Split('\n');
-
-            foreach (string folder in folders)
-            {
-                if (Guid.TryParse(folder, out Guid result))
-                {
-                    return result;
-                }
-            }
-
-            throw new System.IO.IOException("Could not find storage mount");
         }
 
         private async void C_SequenceComplete(object sender, EventArgs e)
@@ -247,7 +185,7 @@ namespace Android.ContinuousStills
                 System.Diagnostics.Debug.WriteLine("Cancelled!!");
                 imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
-                baseDirectory = $"{ StorageLocation}/{GetStoragePoint()}";
+                baseDirectory = $"{ Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}";
 
                 imageSaver = new ImageSaver(baseDirectory, imageReader);
                 imageSaver.ImageFailed += ImageSaver_ImageFailed;

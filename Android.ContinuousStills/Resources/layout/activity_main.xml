@@ -5,8 +5,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
     
-    <Android.ContinuousStills.AutoFitTextureView
-        android:id="@+id/preview"
+    <Android.Camera.AutoFitTextureView
+        android:id="@+id/Preview"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"/>
         <FrameLayout

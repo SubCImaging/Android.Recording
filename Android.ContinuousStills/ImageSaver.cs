@@ -103,7 +103,7 @@ namespace Android.ContinuousStills
             ImageSaved?.Invoke(this, file.AbsolutePath);
         }
 
-        internal void SaveImage()
+        public void SaveImage()
         {
             OnImageAvailable(reader);
         }
@@ -121,8 +121,8 @@ namespace Android.ContinuousStills
                 index = 0;
                 folderIndex++;
                 path = $"{dir}/pic{folderIndex}";
-                MainActivity.ShellSync($"mkdir -p \"{path}\"");
-                MainActivity.ShellSync($"chmod -R 777 \"{path}\"");
+                Camera.MainActivity.ShellSync($"mkdir -p \"{path}\"");
+                Camera.MainActivity.ShellSync($"chmod -R 777 \"{path}\"");
             }
 
             index++;
