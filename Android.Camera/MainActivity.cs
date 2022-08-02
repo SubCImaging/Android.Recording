@@ -1,4 +1,5 @@
 ﻿using Android.App;
+using Android.Content.PM;
 using Android.Graphics;
 using Android.Hardware.Camera2;
 using Android.Hardware.Camera2.Params;
@@ -9,6 +10,8 @@ using Android.Util;
 using Android.Views;
 using Android.Widget;
 using AndroidX.AppCompat.App;
+using AndroidX.Core.App;
+using AndroidX.Core.Content;
 using Java.IO;
 using System;
 using System.Threading.Tasks;
@@ -157,6 +160,53 @@ namespace Android.Camera
             return free;
         }
 
+        public async Task InitializePreviewAsync(CameraTemplate template, params Surface[] surfaces)
+        {
+            captureSession?.Close();
+
+            var tcs = new TaskCompletionSource<bool>();
+            // captureSession = null;
+            var failedHandler = new EventHandler<CameraCaptureSession>((s, e) =>
+            {
+                captureSession = e;
+                tcs.TrySetResult(false);
+            });
+
+            var configuredHandler = new EventHandler<CameraCaptureSession>((s, e) =>
+            {
+                captureSession = e;
+                tcs.TrySetResult(true);
+            });
+
+            var sessionCallbackThread = new HandlerThread("SessionCallbackThread");
+            sessionCallbackThread.Start();
+            var handler = new Android.OS.Handler(sessionCallbackThread.Looper);
+
+            var sessionCallback = new CameraSessionCallback();
+            sessionCallback.Configured += configuredHandler;
+            sessionCallback.ConfigureFailed += failedHandler;
+
+            try
+            {
+                camera.CreateCaptureSession(surfaces, sessionCallback, handler);
+            }
+            catch (Exception e)
+            {
+                tcs.TrySetResult(false);
+                throw e;
+            }
+
+            await tcs.Task;
+            var builder = camera.CreateCaptureRequest(template);
+            foreach (var surface in surfaces)
+            {
+                builder.AddTarget(surface);
+            }
+            request = builder.Build();
+
+            captureSession.SetRepeatingRequest(request, null, null);
+        }
+
         public async void OnInfo(MediaRecorder mr, [GeneratedEnum] MediaRecorderInfo what, int extra)
         {
             System.Diagnostics.Debug.WriteLine($"Warning: " + what);
@@ -178,10 +228,17 @@ namespace Android.Camera
         public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
         {
             Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
-            if (requestCode == 1)
+
+            //if (requestCode == 1)
+            //{
+            //    //RequestPermissions(permissions)
+            //}
+
+            if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.Camera) != (int)Permission.Granted)
             {
-                // show premission window
+                RequestPermissions(new string[] { Manifest.Permission.Camera, Manifest.Permission.WriteExternalStorage, Manifest.Permission.ReadExternalStorage }, 0);
             }
+
             base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
         }
 
@@ -238,7 +295,7 @@ namespace Android.Camera
             imageSaver = new ImageSaver(baseDirectory, imageReader);
             imageSaver.ImageFailed += ImageSaver_ImageFailed;
 
-            await InitializePreviewAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture));
+            await InitializePreviewAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture), imageReader.Surface);
         }
 
         private async void C_SequenceComplete(object sender, EventArgs e)
@@ -275,9 +332,9 @@ namespace Android.Camera
             imageSaver.SaveImage();
         }
 
-        private async void Capture_Click(object sender, EventArgs e)
+        private void Capture_Click(object sender, EventArgs e)
         {
-            await InitializePreviewAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture), imageReader.Surface);
+            //await InitializePreviewAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture), imageReader.Surface);
             StartContinuous();
         }
 
@@ -302,53 +359,6 @@ namespace Android.Camera
         private void ImageSaver_ImageFailed(object sender, EventArgs e)
         {
             isCancelled = true;
-        }
-
-        private async Task InitializePreviewAsync(CameraTemplate template, params Surface[] surfaces)
-        {
-            //captureSession?.Close();
-
-            var tcs = new TaskCompletionSource<bool>();
-            captureSession = null;
-            var failedHandler = new EventHandler<CameraCaptureSession>((s, e) =>
-            {
-                captureSession = e;
-                tcs.TrySetResult(false);
-            });
-
-            var configuredHandler = new EventHandler<CameraCaptureSession>((s, e) =>
-            {
-                captureSession = e;
-                tcs.TrySetResult(true);
-            });
-
-            var sessionCallbackThread = new HandlerThread("SessionCallbackThread");
-            sessionCallbackThread.Start();
-            var handler = new Android.OS.Handler(sessionCallbackThread.Looper);
-
-            var sessionCallback = new CameraSessionCallback();
-            sessionCallback.Configured += configuredHandler;
-            sessionCallback.ConfigureFailed += failedHandler;
-
-            try
-            {
-                camera.CreateCaptureSession(surfaces, sessionCallback, handler);
-            }
-            catch (Exception e)
-            {
-                tcs.TrySetResult(false);
-                throw e;
-            }
-
-            await tcs.Task;
-            var builder = camera.CreateCaptureRequest(template);
-            foreach (var surface in surfaces)
-            {
-                builder.AddTarget(surface);
-            }
-            request = builder.Build();
-
-            captureSession.SetRepeatingRequest(request, null, null);
         }
 
         private async void Record_Click(object sender, EventArgs e)
