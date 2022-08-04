@@ -174,15 +174,19 @@ namespace Android.ContinuousStills
 
             if (freeExternalStorage < 18759680)
             {
-                System.Diagnostics.Debug.WriteLine("Information: Filled drive!!");
+                //System.Diagnostics.Debug.WriteLine("Information: Filled drive!!");
+                Android.Util.Log.Info("SubC", "Information: Filled drive!!");
                 return;
             }
 
-            System.Diagnostics.Debug.WriteLine("Warning: Freespace: " + freeExternalStorage);
+            //System.Diagnostics.Debug.WriteLine("Warning: Freespace: " + freeExternalStorage);
+            Android.Util.Log.Info("SubC", "Warning: Freespace: " + freeExternalStorage);
 
             if (isCancelled)
             {
-                System.Diagnostics.Debug.WriteLine("Cancelled!!");
+                //System.Diagnostics.Debug.WriteLine("Cancelled!!");
+                Android.Util.Log.Info("SubC", "Cancelled!!");
+
                 imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
                 baseDirectory = $"{ Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}";

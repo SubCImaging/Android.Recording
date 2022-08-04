@@ -32,7 +32,9 @@ namespace Android.ContinuousStills
             }
             catch (System.Exception e)
             {
-                System.Console.WriteLine($"Error: Failed to save image {file.AbsolutePath} with exception: {e}");
+                //System.Console.WriteLine($"Error: Failed to save image {file.AbsolutePath} with exception: {e}");
+                Android.Util.Log.Info("SubC", $"Error: Failed to save image {file.AbsolutePath} with exception: {e}");
+
                 return false;
             }
             finally
@@ -47,7 +49,8 @@ namespace Android.ContinuousStills
             var bytes = new byte[buffer.Remaining()];
             buffer.Get(bytes);
 
-            System.Diagnostics.Debug.WriteLine($"Saving: {file}");
+            //System.Diagnostics.Debug.WriteLine($"Saving: {file}");
+            Android.Util.Log.Info("SubC", $"Saving: {file}");
 
             SaveImage(file, bytes);
 
@@ -64,8 +67,6 @@ namespace Android.ContinuousStills
                 var file = imageTuple.Item2;
 
                 WriteJpeg(image, file);
-
-                image.Close();
             }
         }
     }

@@ -40,7 +40,7 @@ namespace Android.ContinuousStills
 
         public async void OnImageAvailable(ImageReader reader)
         {
-            System.Diagnostics.Debug.WriteLine($"---> Acquiring image");
+            Android.Util.Log.Info("SubC", "Image listener ... acquiring image");
             Image image = reader.AcquireNextImage();
 
             var attempts = 0;
@@ -51,11 +51,11 @@ namespace Android.ContinuousStills
 
                 if (attempts > 20)
                 {
-                    System.Diagnostics.Debug.WriteLine($"+++> Unable to acquire image");
+                    Android.Util.Log.Info("SubC", "Image listener ... Unable to acquire image");
 
                     if (queue.Count > 0)
                     {
-                        System.Diagnostics.Debug.WriteLine("---> Running");
+                        Android.Util.Log.Info("SubC", "Image listener ... Running");
                         handler.Run();
                     }
 
@@ -80,7 +80,7 @@ namespace Android.ContinuousStills
                 return;
             }
 
-            System.Diagnostics.Debug.WriteLine($"+++> Image acquired");
+            Android.Util.Log.Info("SubC", "Image listener ... Image acquired");
 
             var file = GetStillFile();
             var dir = file.Parent;
@@ -90,13 +90,15 @@ namespace Android.ContinuousStills
                 System.IO.Directory.CreateDirectory(dir);
             }
 
-            System.Diagnostics.Debug.WriteLine($"Information: Starting to capture {index}: " + file.Path);
+            //            System.Diagnostics.Debug.WriteLine($"Information: Starting to capture {index}: " + file.Path);
+            Android.Util.Log.Info("SubC", $"Information: Starting to capture { index}: " + file.Path);
 
             queue.Enqueue((image, file));
 
             if (queue.Count >= 10)
             {
-                System.Diagnostics.Debug.WriteLine("---> Running");
+                //System.Diagnostics.Debug.WriteLine("---> Running");
+                Android.Util.Log.Info("SubC", "Image listener ... Running in queue");
                 handler.Run();
             }
 
@@ -129,7 +131,8 @@ namespace Android.ContinuousStills
 
             var file = new File(path, fileName);
 
-            System.Diagnostics.Debug.WriteLine($"{file}");
+            //System.Diagnostics.Debug.WriteLine($"{file}");
+            Android.Util.Log.Info("SubC", $"{file}");
 
             return file;
         }
