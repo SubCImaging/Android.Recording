@@ -36,9 +36,9 @@ namespace Android.ContinuousStills
 
         public event EventHandler ImageFailed;
 
-        public event EventHandler<string> ImageSaved;
+        //public event EventHandler<string> ImageSaved;
 
-        public async void OnImageAvailable(ImageReader reader)
+        public void OnImageAvailable(ImageReader reader)
         {
             Android.Util.Log.Info("SubC", "Image listener ... acquiring image");
             //Image image = reader.AcquireNextImage();
