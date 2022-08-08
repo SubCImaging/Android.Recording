@@ -202,13 +202,14 @@ namespace Android.ContinuousStills
                 return;
             }
 
-            Take();
+            //Take();
             imageSaver.SaveImage();
+            Take();
         }
 
         private void ImageSaver_ImageFailed(object sender, EventArgs e)
         {
-            isCancelled = true;
+            //isCancelled = true;
         }
 
         private async Task InitializePreviewAsync(params Surface[] surfaces)

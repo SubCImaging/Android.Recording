@@ -41,32 +41,32 @@ namespace Android.ContinuousStills
         public async void OnImageAvailable(ImageReader reader)
         {
             Android.Util.Log.Info("SubC", "Image listener ... acquiring image");
-            Image image = reader.AcquireNextImage();
+            //Image image = reader.AcquireNextImage();
 
-            var attempts = 0;
+            //var attempts = 0;
 
-            while (image == null)
-            {
-                attempts++;
+            //while (image == null)
+            //{
+            //    attempts++;
 
-                if (attempts > 20)
-                {
-                    Android.Util.Log.Info("SubC", "Image listener ... Unable to acquire image");
+            //    if (attempts > 20)
+            //    {
+            //        Android.Util.Log.Info("SubC", "Image listener ... Unable to acquire image");
 
-                    if (queue.Count > 0)
-                    {
-                        Android.Util.Log.Info("SubC", "Image listener ... Running");
-                        handler.Run();
-                    }
+            //        if (queue.Count > 0)
+            //        {
+            //            Android.Util.Log.Info("SubC", "Image listener ... Running");
+            //            handler.Run();
+            //        }
 
-                    break;
-                }
+            //        break;
+            //    }
 
-                await Task.Delay(50);
+            //    await Task.Delay(50);
 
-                image = reader.AcquireNextImage();
-            }
-
+            //    image = reader.AcquireNextImage();
+            //}
+            Image image = reader.AcquireLatestImage();
             if (image == null)
             {
                 failed++;
@@ -76,33 +76,37 @@ namespace Android.ContinuousStills
                     failed = 0;
                     ImageFailed?.Invoke(this, EventArgs.Empty);
                 }
-
+                Android.Util.Log.Info("SubC", $"---> Acquiring image return null, failed {failed} time");
                 return;
             }
 
             Android.Util.Log.Info("SubC", "Image listener ... Image acquired");
 
-            var file = GetStillFile();
-            var dir = file.Parent;
+            //var file = GetStillFile();
+            //var dir = file.Parent;
 
-            if (!System.IO.Directory.Exists(dir))
-            {
-                System.IO.Directory.CreateDirectory(dir);
-            }
+            //if (!System.IO.Directory.Exists(dir))
+            //{
+            //    System.IO.Directory.CreateDirectory(dir);
+            //}
 
-            //            System.Diagnostics.Debug.WriteLine($"Information: Starting to capture {index}: " + file.Path);
-            Android.Util.Log.Info("SubC", $"Information: Starting to capture { index}: " + file.Path);
+            ////            System.Diagnostics.Debug.WriteLine($"Information: Starting to capture {index}: " + file.Path);
+            //Android.Util.Log.Info("SubC", $"Information: Starting to capture { index}: " + file.Path);
 
-            queue.Enqueue((image, file));
+            //queue.Enqueue((image, file));
 
-            if (queue.Count >= 10)
-            {
-                //System.Diagnostics.Debug.WriteLine("---> Running");
-                Android.Util.Log.Info("SubC", "Image listener ... Running in queue");
-                handler.Run();
-            }
-
-            ImageSaved?.Invoke(this, file.AbsolutePath);
+            //if (queue.Count >= 10)
+            //{
+            //    //System.Diagnostics.Debug.WriteLine("---> Running");
+            //    Android.Util.Log.Info("SubC", "Image listener ... Running in queue");
+            //    handler.Run();
+            //}
+            index++;
+            //ImageSaved?.Invoke(this, file.AbsolutePath);
+            Android.Util.Log.Info("SubC", $"+++> Image {index} acquired");
+            QueueSave.WriteJpeg(image, GetStillFile());
+            Android.Util.Log.Info("SubC", $"+++> Image {index} saved");
+            image.Close();
         }
 
         public void SaveImage()
