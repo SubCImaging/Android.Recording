@@ -209,7 +209,7 @@ namespace Android.ContinuousStills
 
         private void ImageSaver_ImageFailed(object sender, EventArgs e)
         {
-            //isCancelled = true;
+            isCancelled = true;
         }
 
         private async Task InitializePreviewAsync(params Surface[] surfaces)
