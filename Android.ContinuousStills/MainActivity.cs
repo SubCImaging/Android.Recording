@@ -160,16 +160,19 @@ namespace Android.ContinuousStills
             imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
             baseDirectory = $"{ Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}";
-
+            Android.Util.Log.Warn("SubC", $"baseDirectory = {baseDirectory}");
             imageSaver = new ImageSaver(baseDirectory, imageReader);
             imageSaver.ImageFailed += ImageSaver_ImageFailed;
 
-            // imageReader.SetOnImageAvailableListener(imageSaver, handler);
+            imageReader.SetOnImageAvailableListener(imageSaver, handler);
             await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
         }
 
-        private async void C_SequenceComplete(object sender, EventArgs e)
+        private void C_SequenceComplete(object sender, EventArgs e)
         {
+            Android.Util.Log.Warn("SubC", "C_SequenceComplete");
+            return;
+            /*
             var freeExternalStorage = GetDiskSpaceRemaining();
 
             if (freeExternalStorage < 18759680)
@@ -189,10 +192,12 @@ namespace Android.ContinuousStills
 
                 imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
+
                 baseDirectory = $"{ Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}";
 
                 imageSaver = new ImageSaver(baseDirectory, imageReader);
                 imageSaver.ImageFailed += ImageSaver_ImageFailed;
+                imageReader.SetOnImageAvailableListener(imageSaver, null);
 
                 await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
 
@@ -205,6 +210,7 @@ namespace Android.ContinuousStills
             //Take();
             imageSaver.SaveImage();
             Take();
+            */
         }
 
         private void ImageSaver_ImageFailed(object sender, EventArgs e)
@@ -261,15 +267,18 @@ namespace Android.ContinuousStills
 
         private void Picture_Click(object sender, EventArgs e)
         {
+            Android.Util.Log.Warn("SubC", "start....");
             StartContinuous();
         }
 
         private void Take()
         {
+            Android.Util.Log.Warn("SubC", "take....");
             var c = new CaptureCallback();
             c.SequenceComplete += C_SequenceComplete;
 
-            captureSession.Capture(request, c, handler);
+            // captureSession.Capture(request, c, handler);
+            captureSession.SetRepeatingRequest(request, c, handler);
         }
     }
 }

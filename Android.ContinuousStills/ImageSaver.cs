@@ -10,10 +10,12 @@ using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
+using Android.OS;
+using System.Linq;
 
 namespace Android.ContinuousStills
 {
-    public class ImageSaver
+    public class ImageSaver : Java.Lang.Object, ImageReader.IOnImageAvailableListener
     {
         private readonly string baseDirectory;
         private readonly ImageReader reader;
@@ -22,6 +24,7 @@ namespace Android.ContinuousStills
 
         private QueueSave handler;
         private int index = 0;
+        private int totalIndex = 0;
 
         private int max = 1000;
         private ConcurrentQueue<(Image, File)> queue = new ConcurrentQueue<(Image, File)>();
@@ -32,6 +35,12 @@ namespace Android.ContinuousStills
             this.reader = reader;
 
             handler = new QueueSave("QueueSave", queue);
+
+            var dir = $"{baseDirectory}/Stills/";
+
+            string path = $"{dir}/pic{folderIndex}";
+            Camera.MainActivity.ShellSync($"mkdir -p \"{path}\"");
+            Camera.MainActivity.ShellSync($"chmod -R 777 \"{path}\"");
         }
 
         public event EventHandler ImageFailed;
@@ -41,72 +50,65 @@ namespace Android.ContinuousStills
         public void OnImageAvailable(ImageReader reader)
         {
             Android.Util.Log.Info("SubC", "Image listener ... acquiring image");
-            //Image image = reader.AcquireNextImage();
-
-            //var attempts = 0;
-
-            //while (image == null)
-            //{
-            //    attempts++;
-
-            //    if (attempts > 20)
-            //    {
-            //        Android.Util.Log.Info("SubC", "Image listener ... Unable to acquire image");
-
-            //        if (queue.Count > 0)
-            //        {
-            //            Android.Util.Log.Info("SubC", "Image listener ... Running");
-            //            handler.Run();
-            //        }
-
-            //        break;
-            //    }
-
-            //    await Task.Delay(50);
-
-            //    image = reader.AcquireNextImage();
-            //}
             Image image = reader.AcquireLatestImage();
             if (image == null)
             {
                 failed++;
 
-                if (failed > 20)
-                {
-                    failed = 0;
-                    ImageFailed?.Invoke(this, EventArgs.Empty);
-                }
+                // if (failed > 20)
+                // {
+                //     failed = 0;
+                //     ImageFailed?.Invoke(this, EventArgs.Empty);
+                // }
                 Android.Util.Log.Info("SubC", $"---> Acquiring image return null, failed {failed} time");
                 return;
             }
 
             Android.Util.Log.Info("SubC", "Image listener ... Image acquired");
 
-            //var file = GetStillFile();
-            //var dir = file.Parent;
-
-            //if (!System.IO.Directory.Exists(dir))
-            //{
-            //    System.IO.Directory.CreateDirectory(dir);
-            //}
-
-            ////            System.Diagnostics.Debug.WriteLine($"Information: Starting to capture {index}: " + file.Path);
-            //Android.Util.Log.Info("SubC", $"Information: Starting to capture { index}: " + file.Path);
-
-            //queue.Enqueue((image, file));
-
-            //if (queue.Count >= 10)
-            //{
-            //    //System.Diagnostics.Debug.WriteLine("---> Running");
-            //    Android.Util.Log.Info("SubC", "Image listener ... Running in queue");
-            //    handler.Run();
-            //}
-            index++;
-            //ImageSaved?.Invoke(this, file.AbsolutePath);
-            Android.Util.Log.Info("SubC", $"+++> Image {index} acquired");
-            QueueSave.WriteJpeg(image, GetStillFile());
-            Android.Util.Log.Info("SubC", $"+++> Image {index} saved");
+            WriteJpeg(image, GetStillFile());
+            Android.Util.Log.Info("SubC", $"+++> Image {totalIndex} saved, so far failed {failed} time");
             image.Close();
+        }
+
+        private void WriteJpeg(Image image, string file)
+        {
+            var buffer = image.GetPlanes().First().Buffer;
+            var bytes = new byte[buffer.Remaining()];
+            buffer.Get(bytes);
+
+            Android.Util.Log.Info("SubC", $"Saving: {file}");
+
+            SaveImage(file, bytes);
+
+            image.Close();
+        }
+
+        private bool SaveImage(string file, byte[] bytes)
+        {
+            if (file == null)
+            {
+                throw new ArgumentNullException("File cannot be null");
+            }
+
+            using var output = new Java.IO.FileOutputStream (file);
+            try
+            {
+                output.Write(bytes);
+                return true;
+            }
+            catch (System.Exception e)
+            {
+                //System.Console.WriteLine($"Error: Failed to save image {file.AbsolutePath} with exception: {e}");
+                Android.Util.Log.Info("SubC", $"Error: Failed to save image {file} with exception: {e}");
+
+                return false;
+            }
+            finally
+            {
+                output?.Close();
+            }
+            return false;
         }
 
         public void SaveImage()
@@ -114,7 +116,7 @@ namespace Android.ContinuousStills
             OnImageAvailable(reader);
         }
 
-        private File GetStillFile()
+        private string GetStillFile()
         {
             string fileName = "still-" + DateTime.Now.ToString("yyMMdd-hhmmss.fff") + ".jpg"; //new filenamed based on date time
 
@@ -132,11 +134,12 @@ namespace Android.ContinuousStills
             }
 
             index++;
+            totalIndex++;
 
-            var file = new File(path, fileName);
+            var file = new File(path, fileName).ToString();
 
             //System.Diagnostics.Debug.WriteLine($"{file}");
-            Android.Util.Log.Info("SubC", $"{file}");
+            // Android.Util.Log.Info("SubC", $"GetStillFile returns {file}");
 
             return file;
         }

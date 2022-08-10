@@ -23,7 +23,7 @@ namespace Android.ContinuousStills
                 throw new ArgumentNullException("File cannot be null");
             }
 
-            using var output = new FileOutputStream(file);
+            var output = new FileOutputStream(file);
 
             try
             {
