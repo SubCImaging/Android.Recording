@@ -80,8 +80,6 @@ namespace Android.ContinuousStills
             Android.Util.Log.Info("SubC", $"Saving: {file}");
 
             SaveImage(file, bytes);
-
-            image.Close();
         }
 
         private bool SaveImage(string file, byte[] bytes)
