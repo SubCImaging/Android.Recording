@@ -131,7 +131,6 @@ namespace Android.ContinuousStills
             request = stillCaptureBuilder.Build();
 
             Take();
-            timer.Start();
         }
 
         protected override async void OnCreate(Bundle savedInstanceState)
@@ -166,19 +165,14 @@ namespace Android.ContinuousStills
 
             baseDirectory = $"{Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}";
             Android.Util.Log.Warn("SubC", $"baseDirectory = {baseDirectory}");
+
             imageSaver = new ImageSaver(baseDirectory, imageReader);
             imageReader.SetOnImageAvailableListener(imageSaver, handler);
+
             timer.Elapsed += Timer_Elapsed;
             imageSaver.ImageCaptured += ImageSaver_ImageCaptured;
-            CreateCaptureSession(new Surface(preview.SurfaceTexture), imageReader.Surface);
-            //await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
-            // StartContinuous();
-        }
 
-        private void C_SequenceComplete(object sender, EventArgs e)
-        {
-            Android.Util.Log.Warn("SubC", "C_SequenceComplete");
-            return;
+            CreateCaptureSession(new Surface(preview.SurfaceTexture), imageReader.Surface);
         }
 
         private void CreateCaptureSession(params Surface[] surfaces)
@@ -244,18 +238,17 @@ namespace Android.ContinuousStills
         private void Take()
         {
             Android.Util.Log.Warn("SubC", "take....");
-            var c = new CaptureCallback();
-            c.SequenceComplete += C_SequenceComplete;
+            captureSession.Capture(request, new CaptureCallback(), handler);
 
-            Android.Util.Log.Warn("SubC", "call Capture");
-            captureSession.Capture(request, c, handler);
-            //captureSession.SetRepeatingRequest(request, c, handler);
+            timer.Start();
+
+            // captureSession.SetRepeatingRequest(request, c, handler);
         }
 
         private void Timer_Elapsed(object sender, ElapsedEventArgs e)
         {
             Android.Util.Log.Info("SubCTimer", "Picture failed restarting");
-            StartContinuous();
+            Take();
         }
     }
 }
