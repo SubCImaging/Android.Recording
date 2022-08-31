@@ -175,7 +175,7 @@ namespace Android.ContinuousStills
             CreateCaptureSession(new Surface(preview.SurfaceTexture), imageReader.Surface);
         }
 
-        private void CreateCaptureSession(params Surface[] surfaces)
+        private async void CreateCaptureSession(params Surface[] surfaces)
         {
             var tcs = new TaskCompletionSource<bool>();
 
@@ -207,6 +207,16 @@ namespace Android.ContinuousStills
             {
                 throw e;
             }
+
+            await tcs.Task;
+            var builder = camera.CreateCaptureRequest(CameraTemplate.Preview);
+            Surface previewsurface = new Surface(preview.SurfaceTexture);
+
+            builder.AddTarget(previewsurface);
+
+            var request = builder.Build();
+
+            captureSession.SetRepeatingRequest(request, null, null);
         }
 
         private void ImageSaver_ImageCaptured(object sender, EventArgs e)
