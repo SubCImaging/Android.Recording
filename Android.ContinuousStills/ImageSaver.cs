@@ -43,6 +43,8 @@ namespace Android.ContinuousStills
             Camera.MainActivity.ShellSync($"chmod -R 777 \"{path}\"");
         }
 
+        public event EventHandler ImageCaptured;
+
         public void OnImageAvailable(ImageReader reader)
         {
             Android.Util.Log.Info("SubC", "Image listener ... acquiring image");
@@ -65,6 +67,7 @@ namespace Android.ContinuousStills
                 Android.Util.Log.Info("SubC", $"+++> queue is full, drop image");
                 image.Close();
             }
+            ImageCaptured?.Invoke(this, EventArgs.Empty);
         }
 
         private File GetStillFile()

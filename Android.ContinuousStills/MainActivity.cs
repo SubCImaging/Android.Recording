@@ -5,6 +5,7 @@ using Android.Runtime;
 using AndroidX.AppCompat.App;
 using System.Threading.Tasks;
 using System;
+using System.Timers;
 using Android.Views;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -40,6 +41,9 @@ namespace Android.ContinuousStills
         private Handler sessionCallbackhandler;
         private HandlerThread sessionCallbackThread;
         private CaptureRequest.Builder stillCaptureBuilder;
+        private System.Timers.Timer timer = new Timer(5000);
+
+        public event EventHandler ImageCapture;
 
         /// <summary>
         /// Gets all characteristics of the camera system.
@@ -127,6 +131,7 @@ namespace Android.ContinuousStills
             request = stillCaptureBuilder.Build();
 
             Take();
+            timer.Start();
         }
 
         protected override async void OnCreate(Bundle savedInstanceState)
@@ -162,8 +167,9 @@ namespace Android.ContinuousStills
             baseDirectory = $"{Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}";
             Android.Util.Log.Warn("SubC", $"baseDirectory = {baseDirectory}");
             imageSaver = new ImageSaver(baseDirectory, imageReader);
-
             imageReader.SetOnImageAvailableListener(imageSaver, handler);
+            timer.Elapsed += Timer_Elapsed;
+            imageSaver.ImageCaptured += ImageSaver_ImageCaptured;
             CreateCaptureSession(new Surface(preview.SurfaceTexture), imageReader.Surface);
             //await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
             // StartContinuous();
@@ -209,6 +215,12 @@ namespace Android.ContinuousStills
             }
         }
 
+        private void ImageSaver_ImageCaptured(object sender, EventArgs e)
+        {
+            timer.Stop();
+            timer.Start();
+        }
+
         private async Task InitializePreviewAsync(params Surface[] surfaces)
         {
             captureSession?.Close();
@@ -236,8 +248,14 @@ namespace Android.ContinuousStills
             c.SequenceComplete += C_SequenceComplete;
 
             Android.Util.Log.Warn("SubC", "call Capture");
-            //captureSession.Capture(request, c, handler);
-            captureSession.SetRepeatingRequest(request, c, handler);
+            captureSession.Capture(request, c, handler);
+            //captureSession.SetRepeatingRequest(request, c, handler);
+        }
+
+        private void Timer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            Android.Util.Log.Info("SubCTimer", "Picture failed restarting");
+            StartContinuous();
         }
     }
 }
