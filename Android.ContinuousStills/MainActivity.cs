@@ -223,6 +223,7 @@ namespace Android.ContinuousStills
         {
             timer.Stop();
             timer.Start();
+            Take();
         }
 
         private async Task InitializePreviewAsync(params Surface[] surfaces)
