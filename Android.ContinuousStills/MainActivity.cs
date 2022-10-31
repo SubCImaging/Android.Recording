@@ -127,6 +127,7 @@ namespace Android.ContinuousStills
             stillCaptureBuilder.Set(CaptureRequest.ColorCorrectionAberrationMode, (int)ColorCorrectionAberrationMode.Off);
             stillCaptureBuilder.Set(CaptureRequest.ControlAfMode, (int)ControlAFMode.ContinuousPicture);
             stillCaptureBuilder.AddTarget(imageReader.Surface);
+            stillCaptureBuilder.AddTarget(new Surface(preview.SurfaceTexture));
 
             request = stillCaptureBuilder.Build();
 
@@ -161,6 +162,7 @@ namespace Android.ContinuousStills
             Characteristics = cameraManager.GetCameraCharacteristics("0");
             StreamMap = (StreamConfigurationMap)Characteristics.Get(CameraCharacteristics.ScalerStreamConfigurationMap);
             jpegSizes = StreamMap.GetOutputSizes((int)ImageFormatType.Jpeg);
+
             imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
             baseDirectory = $"{Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}";
@@ -221,9 +223,10 @@ namespace Android.ContinuousStills
 
         private void ImageSaver_ImageCaptured(object sender, EventArgs e)
         {
+            Android.Util.Log.Warn("SubC", "Image captured, resetting timer.");
             timer.Stop();
             timer.Start();
-            Take();
+            // Take();
         }
 
         private async Task InitializePreviewAsync(params Surface[] surfaces)
@@ -249,11 +252,11 @@ namespace Android.ContinuousStills
         private void Take()
         {
             Android.Util.Log.Warn("SubC", "take....");
-            captureSession.Capture(request, new CaptureCallback(), handler);
+            // captureSession.Capture(request, new CaptureCallback(), handler);
 
             timer.Start();
 
-            // captureSession.SetRepeatingRequest(request, c, handler);
+            captureSession.SetRepeatingRequest(request, new CaptureCallback(), handler);
         }
 
         private void Timer_Elapsed(object sender, ElapsedEventArgs e)
