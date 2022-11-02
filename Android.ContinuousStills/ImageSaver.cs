@@ -17,8 +17,8 @@ namespace Android.ContinuousStills
 {
     public class ImageSaver : Java.Lang.Object, ImageReader.IOnImageAvailableListener
     {
-        public readonly string baseDirectory;
         private readonly ImageReader reader;
+        private string baseDirectory;
         private int failed;
         private int folderIndex = 0;
 
@@ -34,7 +34,6 @@ namespace Android.ContinuousStills
             this.reader = reader;
 
             handler = new QueueSave("QueueSave", queue);
-            handler.Start();
 
             var dir = $"{baseDirectory}/Stills/";
 
@@ -43,7 +42,18 @@ namespace Android.ContinuousStills
             Camera.MainActivity.ShellSync($"chmod -R 777 \"{path}\"");
         }
 
-        public event EventHandler ImageCaptured;
+        public event EventHandler ImageFailed;
+
+        //public event EventHandler<string> ImageSaved;
+
+        public double GetDiskSpaceRemaining()
+        {
+            baseDirectory = $"{Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}";
+
+            var fs = new StatFs(baseDirectory);
+            var free = fs.AvailableBlocksLong * fs.BlockSizeLong;
+            return free;
+        }
 
         public void OnImageAvailable(ImageReader reader)
         {
@@ -53,24 +63,28 @@ namespace Android.ContinuousStills
             {
                 failed++;
 
+                // if (failed > 20)
+                // {
+                //     failed = 0;
+                //     ImageFailed?.Invoke(this, EventArgs.Empty);
+                // }
                 Android.Util.Log.Info("SubC", $"---> Acquiring image return null, failed {failed} time");
                 return;
             }
 
-            if (queue.Count < 10)
-            {
-                queue.Enqueue((image, GetStillFile()));
-                Android.Util.Log.Info("SubC", $"+++> Image is enquened, so far failed {failed} time, acquire {totalIndex}  time");
-            }
-            else
-            {
-                Android.Util.Log.Info("SubC", $"+++> queue is full, drop image");
-                image.Close();
-            }
-            ImageCaptured?.Invoke(this, EventArgs.Empty);
+            Android.Util.Log.Info("SubC", "Image listener ... Image acquired");
+
+            WriteJpeg(image, GetStillFile());
+            Android.Util.Log.Info("SubC", $"+++> Image {totalIndex} saved, so far failed {failed} time");
+            image.Close();
         }
 
-        private File GetStillFile()
+        public void SaveImage()
+        {
+            OnImageAvailable(reader);
+        }
+
+        private string GetStillFile()
         {
             string fileName = "still-" + DateTime.Now.ToString("yyMMdd-hhmmss.fff") + ".jpg"; //new filenamed based on date time
 
@@ -90,7 +104,63 @@ namespace Android.ContinuousStills
             index++;
             totalIndex++;
 
-            return new File(path, fileName);
+            var file = new File(path, fileName).ToString();
+
+            //System.Diagnostics.Debug.WriteLine($"{file}");
+            // Android.Util.Log.Info("SubC", $"GetStillFile returns {file}");
+
+            return file;
+        }
+
+        private bool SaveImage(string file, byte[] bytes)
+        {
+            if (file == null)
+            {
+                throw new ArgumentNullException("File cannot be null");
+            }
+
+            using var output = new Java.IO.FileOutputStream(file);
+            try
+            {
+                output.Write(bytes);
+                return true;
+            }
+            catch (System.Exception e)
+            {
+                //System.Console.WriteLine($"Error: Failed to save image {file.AbsolutePath} with exception: {e}");
+                Android.Util.Log.Info("SubC", $"Error: Failed to save image {file} with exception: {e}");
+
+                return false;
+            }
+            finally
+            {
+                output?.Close();
+            }
+            return false;
+        }
+
+        private void WriteJpeg(Image image, string file)
+        {
+            var buffer = image.GetPlanes().First().Buffer;
+            var bytes = new byte[buffer.Remaining()];
+            buffer.Get(bytes);
+
+            Android.Util.Log.Info("SubC", $"Saving: {file}");
+            var freeExternalStorage = GetDiskSpaceRemaining();
+
+            if (freeExternalStorage < 18759680)
+            {
+                //System.Diagnostics.Debug.WriteLine("Information: Filled drive!!");
+                Android.Util.Log.Info("SubC", "Information: Filled drive!!");
+                throw new FileNotFoundException("filled!!");
+            }
+            if (freeExternalStorage > 18759680)
+            {
+                //System.Diagnostics.Debug.WriteLine("Warning: Freespace: " + freeExternalStorage);
+                Android.Util.Log.Info("SubC", "Warning: Freespace: " + freeExternalStorage);
+
+                SaveImage(file, bytes);
+            }
         }
     }
 }

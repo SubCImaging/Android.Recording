@@ -5,7 +5,6 @@ using Android.Runtime;
 using AndroidX.AppCompat.App;
 using System.Threading.Tasks;
 using System;
-using System.Timers;
 using Android.Views;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -26,24 +25,20 @@ namespace Android.ContinuousStills
     [Activity(Label = "@string/app_name", Theme = "@style/AppTheme", MainLauncher = true)]
     public class MainActivity : AppCompatActivity
     {
-        private HandlerThread backgroundThread;
+        public Handler handler;
+
         private string baseDirectory;
         private CameraDevice camera;
         private CameraCaptureSession captureSession;
-        private Handler handler;
         private ImageReader imageReader;
         private ImageSaver imageSaver;
+
         private bool isCancelled;
         private Size[] jpegSizes;
         private Button picture;
         private AutoFitTextureView preview;
         private CaptureRequest request;
-        private Handler sessionCallbackhandler;
-        private HandlerThread sessionCallbackThread;
         private CaptureRequest.Builder stillCaptureBuilder;
-        private System.Timers.Timer timer = new Timer(5000);
-
-        public event EventHandler ImageCapture;
 
         /// <summary>
         /// Gets all characteristics of the camera system.
@@ -55,27 +50,13 @@ namespace Android.ContinuousStills
         /// </summary>
         public StreamConfigurationMap StreamMap { get; private set; }
 
-        public double GetDiskSpaceRemaining()
+        public static Task<CameraDevice> OpenCameraAsync(string cameraId, CameraManager cameraManager)
         {
-            var fs = new StatFs(baseDirectory);
-            var free = fs.AvailableBlocksLong * fs.BlockSizeLong;
-            return free;
-        }
+            // create a new background thread to open the camera on
+            var backgroundThread = new HandlerThread("CameraBackground");
+            backgroundThread.Start();
+            var handler = new Android.OS.Handler(backgroundThread.Looper);
 
-        public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
-        {
-            Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
-
-            if (requestCode == 1)
-            {
-                // show premission window
-            }
-
-            base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
-        }
-
-        public Task<CameraDevice> OpenCameraAsync(string cameraId, CameraManager cameraManager)
-        {
             return OpenCameraAsync(cameraId, cameraManager, new CameraStateCallback(), handler);
         }
 
@@ -87,7 +68,7 @@ namespace Android.ContinuousStills
         /// <param name="stateCallback">A <see cref="CameraStateCallback"/>.</param>
         /// <param name="backgroundHandler">A background handler.</param>
         /// <returns>A task of CameraDevice.</returns>
-        public async Task<CameraDevice> OpenCameraAsync(string cameraId, CameraManager cameraManager, CameraStateCallback stateCallback, Android.OS.Handler backgroundHandler)
+        public static async Task<CameraDevice> OpenCameraAsync(string cameraId, CameraManager cameraManager, CameraStateCallback stateCallback, Android.OS.Handler backgroundHandler)
         {
             var tcs = new TaskCompletionSource<CameraDevice>();
             var handler = new EventHandler<CameraDevice>((s, e) =>
@@ -111,6 +92,25 @@ namespace Android.ContinuousStills
             stateCallback.Opened -= handler;
 
             return c;
+        }
+
+        public double GetDiskSpaceRemaining()
+        {
+            var fs = new StatFs(baseDirectory);
+            var free = fs.AvailableBlocksLong * fs.BlockSizeLong;
+            return free;
+        }
+
+        public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
+        {
+            Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+
+            if (requestCode == 1)
+            {
+                // show premission window
+            }
+
+            base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
         }
 
         public void StartContinuous()
@@ -153,32 +153,75 @@ namespace Android.ContinuousStills
                 await Task.Delay(TimeSpan.FromMilliseconds(100));
             }
 
-            backgroundThread = new HandlerThread("CameraBackground");
-            backgroundThread.Start();
-            handler = new Android.OS.Handler(backgroundThread.Looper);
-
             // get the camera from the camera manager with the given ID
             camera = await OpenCameraAsync("0", cameraManager);
             Characteristics = cameraManager.GetCameraCharacteristics("0");
             StreamMap = (StreamConfigurationMap)Characteristics.Get(CameraCharacteristics.ScalerStreamConfigurationMap);
             jpegSizes = StreamMap.GetOutputSizes((int)ImageFormatType.Jpeg);
-
             imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
-            baseDirectory = $"{Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}";
+            baseDirectory = $"{ Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}";
             Android.Util.Log.Warn("SubC", $"baseDirectory = {baseDirectory}");
-
             imageSaver = new ImageSaver(baseDirectory, imageReader);
+            imageSaver.ImageFailed += ImageSaver_ImageFailed;
+
             imageReader.SetOnImageAvailableListener(imageSaver, handler);
-
-            timer.Elapsed += Timer_Elapsed;
-            imageSaver.ImageCaptured += ImageSaver_ImageCaptured;
-
-            CreateCaptureSession(new Surface(preview.SurfaceTexture), imageReader.Surface);
+            await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
         }
 
-        private async void CreateCaptureSession(params Surface[] surfaces)
+        private void C_SequenceComplete(object sender, EventArgs e)
         {
+            Android.Util.Log.Warn("SubC", "C_SequenceComplete");
+            return;
+            /*
+            var freeExternalStorage = GetDiskSpaceRemaining();
+
+            if (freeExternalStorage < 18759680)
+            {
+                //System.Diagnostics.Debug.WriteLine("Information: Filled drive!!");
+                Android.Util.Log.Info("SubC", "Information: Filled drive!!");
+                return;
+            }
+
+            //System.Diagnostics.Debug.WriteLine("Warning: Freespace: " + freeExternalStorage);
+            Android.Util.Log.Info("SubC", "Warning: Freespace: " + freeExternalStorage);
+
+            if (isCancelled)
+            {
+                //System.Diagnostics.Debug.WriteLine("Cancelled!!");
+                Android.Util.Log.Info("SubC", "Cancelled!!");
+
+                imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
+
+                baseDirectory = $"{ Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}";
+
+                imageSaver = new ImageSaver(baseDirectory, imageReader);
+                imageSaver.ImageFailed += ImageSaver_ImageFailed;
+                imageReader.SetOnImageAvailableListener(imageSaver, null);
+
+                await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
+
+                isCancelled = false;
+
+                StartContinuous();
+                return;
+            }
+
+            //Take();
+            imageSaver.SaveImage();
+            Take();
+            */
+        }
+
+        private void ImageSaver_ImageFailed(object sender, EventArgs e)
+        {
+            isCancelled = true;
+        }
+
+        private async Task InitializePreviewAsync(params Surface[] surfaces)
+        {
+            captureSession?.Close();
+
             var tcs = new TaskCompletionSource<bool>();
 
             var failedHandler = new EventHandler<CameraCaptureSession>((s, e) =>
@@ -193,9 +236,9 @@ namespace Android.ContinuousStills
                 tcs.TrySetResult(true);
             });
 
-            sessionCallbackThread = new HandlerThread("SessionCallbackThread");
+            var sessionCallbackThread = new HandlerThread("SessionCallbackThread");
             sessionCallbackThread.Start();
-            sessionCallbackhandler = new Android.OS.Handler(sessionCallbackThread.Looper);
+            var handler = new Android.OS.Handler(sessionCallbackThread.Looper);
 
             var sessionCallback = new CameraSessionCallback();
             sessionCallback.Configured += configuredHandler;
@@ -203,36 +246,15 @@ namespace Android.ContinuousStills
 
             try
             {
-                camera.CreateCaptureSession(surfaces, sessionCallback, sessionCallbackhandler);
+                camera.CreateCaptureSession(surfaces, sessionCallback, handler);
             }
             catch (Exception e)
             {
+                tcs.TrySetResult(false);
                 throw e;
             }
 
             await tcs.Task;
-            var builder = camera.CreateCaptureRequest(CameraTemplate.Preview);
-            Surface previewsurface = new Surface(preview.SurfaceTexture);
-
-            builder.AddTarget(previewsurface);
-
-            var request = builder.Build();
-
-            captureSession.SetRepeatingRequest(request, null, null);
-        }
-
-        private void ImageSaver_ImageCaptured(object sender, EventArgs e)
-        {
-            Android.Util.Log.Warn("SubC", "Image captured, resetting timer.");
-            timer.Stop();
-            timer.Start();
-            // Take();
-        }
-
-        private async Task InitializePreviewAsync(params Surface[] surfaces)
-        {
-            captureSession?.Close();
-
             var builder = camera.CreateCaptureRequest(CameraTemplate.Preview);
             Surface previewSurface = new Surface(preview.SurfaceTexture);
 
@@ -252,17 +274,11 @@ namespace Android.ContinuousStills
         private void Take()
         {
             Android.Util.Log.Warn("SubC", "take....");
-            // captureSession.Capture(request, new CaptureCallback(), handler);
+            var c = new CaptureCallback();
+            //c.SequenceComplete += C_SequenceComplete;
 
-            timer.Start();
-
-            captureSession.SetRepeatingRequest(request, new CaptureCallback(), handler);
-        }
-
-        private void Timer_Elapsed(object sender, ElapsedEventArgs e)
-        {
-            Android.Util.Log.Info("SubCTimer", "Picture failed restarting");
-            Take();
+            //captureSession.Capture(request, c, handler);
+            captureSession.SetRepeatingRequest(request, c, handler);
         }
     }
 }
