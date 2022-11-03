@@ -3,8 +3,8 @@
   <PropertyGroup>
     <AndroidDesignerPreferredTheme>AppTheme</AndroidDesignerPreferredTheme>
     <AndroidDesignerPreferredDevice>Nexus 4</AndroidDesignerPreferredDevice>
-    <SelectedDevice>SubC-Imaging Rayfin %28192.168.2.167:5555%29</SelectedDevice>
-    <ActiveDebugProfile>SubC-Imaging Rayfin %28192.168.2.167:5555%29</ActiveDebugProfile>
+    <SelectedDevice>SubC-Imaging Rayfin %28192.168.2.99:5555%29</SelectedDevice>
+    <ActiveDebugProfile>SubC-Imaging Rayfin %28192.168.2.99:5555%29</ActiveDebugProfile>
     <SelectedPlatformGroup>PhysicalDevice</SelectedPlatformGroup>
   </PropertyGroup>
 </Project>

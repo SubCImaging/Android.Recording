@@ -27,18 +27,21 @@ namespace Android.ContinuousStills
     {
         public Handler handler;
 
-        private string baseDirectory;
-        private CameraDevice camera;
-        private CameraCaptureSession captureSession;
-        private ImageReader imageReader;
-        private ImageSaver imageSaver;
+        // private ContinuousStillsManager continuous = new ContinuousStillsManager();
+        public ImageReader imageReader;
 
+        public AutoFitTextureView preview;
+        private string baseDirectory;
+        private ContinuousStillsManager continuous;
+        private ImageSaver imageSaver;
         private bool isCancelled;
         private Size[] jpegSizes;
         private Button picture;
-        private AutoFitTextureView preview;
         private CaptureRequest request;
         private CaptureRequest.Builder stillCaptureBuilder;
+        private Button stop;
+        public CameraDevice camera { get; set; }
+        public CameraCaptureSession captureSession { get; set; }
 
         /// <summary>
         /// Gets all characteristics of the camera system.
@@ -142,7 +145,10 @@ namespace Android.ContinuousStills
             SetContentView(Resource.Layout.activity_main);
             // set up the camera
             // get the preview to display video
+
             preview = FindViewById<AutoFitTextureView>(Resource.Id.Preview);
+            stop = FindViewById<Button>(Resource.Id.stop);
+            stop.Click += Stop_Click;
             picture = FindViewById<Button>(Resource.Id.picture);
             picture.Click += Picture_Click;
 
@@ -164,9 +170,11 @@ namespace Android.ContinuousStills
             Android.Util.Log.Warn("SubC", $"baseDirectory = {baseDirectory}");
             imageSaver = new ImageSaver(baseDirectory, imageReader);
             imageSaver.ImageFailed += ImageSaver_ImageFailed;
-
             imageReader.SetOnImageAvailableListener(imageSaver, handler);
-            await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
+            var previewSurface = new Surface(preview.SurfaceTexture);
+            var imgReader = imageReader.Surface;
+            await InitializePreviewAsync(previewSurface, imgReader);
+            continuous = new ContinuousStillsManager(previewSurface, camera, imgReader, captureSession);
         }
 
         private void C_SequenceComplete(object sender, EventArgs e)
@@ -268,7 +276,14 @@ namespace Android.ContinuousStills
         private void Picture_Click(object sender, EventArgs e)
         {
             Android.Util.Log.Warn("SubC", "start....");
-            StartContinuous();
+            //StartContinuous();
+
+            continuous.StartContinousStills();
+        }
+
+        private void Stop_Click(object sender, EventArgs e)
+        {
+            continuous.StopContinuousStills();
         }
 
         private void Take()
