@@ -290,7 +290,7 @@ namespace Android.Camera
             jpegSizes = StreamMap.GetOutputSizes((int)ImageFormatType.Jpeg);
             imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
-            baseDirectory = $"{ StorageLocation}/{GetStoragePoint()}";
+            baseDirectory = $"{StorageLocation}/{GetStoragePoint()}";
 
             imageSaver = new ImageSaver(baseDirectory, imageReader);
             imageSaver.ImageFailed += ImageSaver_ImageFailed;
@@ -315,7 +315,7 @@ namespace Android.Camera
                 System.Diagnostics.Debug.WriteLine("Cancelled!!");
                 imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
-                baseDirectory = $"{ StorageLocation}/{GetStoragePoint()}";
+                baseDirectory = $"{StorageLocation}/{GetStoragePoint()}";
 
                 imageSaver = new ImageSaver(baseDirectory, imageReader);
                 imageSaver.ImageFailed += ImageSaver_ImageFailed;

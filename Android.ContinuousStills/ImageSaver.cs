@@ -44,7 +44,7 @@ namespace Android.ContinuousStills
 
         public event EventHandler ImageFailed;
 
-        //public event EventHandler<string> ImageSaved;
+        public event EventHandler<string> ImageSaved;
 
         public double GetDiskSpaceRemaining()
         {
@@ -74,7 +74,12 @@ namespace Android.ContinuousStills
 
             Android.Util.Log.Info("SubC", "Image listener ... Image acquired");
 
-            WriteJpeg(image, GetStillFile());
+            var stillName = GetStillFile();
+
+            WriteJpeg(image, stillName);
+
+            ImageSaved?.Invoke(this, stillName);
+
             Android.Util.Log.Info("SubC", $"+++> Image {totalIndex} saved, so far failed {failed} time");
             image.Close();
         }

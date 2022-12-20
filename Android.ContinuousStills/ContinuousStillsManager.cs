@@ -64,7 +64,7 @@ namespace Android.ContinuousStills
         {
             Android.Util.Log.Warn("SubC", "take....");
             var c = new CaptureCallback();
-            captureSession.SetRepeatingRequest(request, c, handler);
+            captureSession.Capture(request, c, handler);
         }
     }
 }

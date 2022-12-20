@@ -19,18 +19,26 @@ using System.Linq;
 using Javax.Xml.Transform;
 using Android.Util;
 using Android.Camera;
+using System.Timers;
+using System.Security.Cryptography.X509Certificates;
 
 namespace Android.ContinuousStills
 {
     [Activity(Label = "@string/app_name", Theme = "@style/AppTheme", MainLauncher = true)]
     public class MainActivity : AppCompatActivity
     {
+        /// <summary>
+        /// The location of the SD card in the system.
+        /// </summary>
+        public const string StorageLocation = "/mnt/expand";
+
         public Handler handler;
 
         // private ContinuousStillsManager continuous = new ContinuousStillsManager();
         public ImageReader imageReader;
 
         public AutoFitTextureView preview;
+        private readonly Timer stillTimer = new Timer(1000);
         private string baseDirectory;
         private ContinuousStillsManager continuous;
         private ImageSaver imageSaver;
@@ -52,6 +60,25 @@ namespace Android.ContinuousStills
         /// Gets stream map for get resolutions for stills
         /// </summary>
         public StreamConfigurationMap StreamMap { get; private set; }
+
+        /// <summary>
+        /// Gets the <see cref="Guid" /> that represents the SD card in the Rayfin.
+        /// </summary>
+        /// <returns>The <see cref="Guid" /> that represents the SD card in the Rayfin.</returns>
+        public static Guid GetStoragePoint()
+        {
+            var folders = ShellSync($@"ls {StorageLocation}").Split('\n');
+
+            foreach (string folder in folders)
+            {
+                if (Guid.TryParse(folder, out Guid result))
+                {
+                    return result;
+                }
+            }
+
+            throw new System.IO.IOException("Could not find storage mount");
+        }
 
         public static Task<CameraDevice> OpenCameraAsync(string cameraId, CameraManager cameraManager)
         {
@@ -95,6 +122,45 @@ namespace Android.ContinuousStills
             stateCallback.Opened -= handler;
 
             return c;
+        }
+
+        /// <summary>
+        /// Runs a shell command on the Rayfin.
+        /// </summary>
+        /// <param name="command">The command you wish to execute.</param>
+        /// <param name="timeout">
+        /// The maximum time the command is allowed to run before timing out.
+        /// </param>
+        /// <returns>Anything that comes from stdout.</returns>
+        public static string ShellSync(string command, int timeout = 0)
+        {
+            try
+            {
+                // Run the command
+                var log = new System.Text.StringBuilder();
+                var process = Java.Lang.Runtime.GetRuntime().Exec(new[] { command });
+                var bufferedReader = new BufferedReader(
+                new InputStreamReader(process.InputStream));
+
+                // Grab the results
+                if (timeout > 0)
+                {
+                    process.Wait(timeout);
+                    return string.Empty;
+                }
+
+                string line;
+
+                while ((line = bufferedReader.ReadLine()) != null)
+                {
+                    log.AppendLine(line);
+                }
+                return log.ToString();
+            }
+            catch
+            {
+                return string.Empty;
+            }
         }
 
         public double GetDiskSpaceRemaining()
@@ -146,11 +212,17 @@ namespace Android.ContinuousStills
             // set up the camera
             // get the preview to display video
 
+            var result = ShellSync($@"ls").Split('\n');
+            result = ShellSync($@"ls /mnt").Split('\n');
+            result = ShellSync($@"ls /mnt/expand").Split('\n');
+
             preview = FindViewById<AutoFitTextureView>(Resource.Id.Preview);
             stop = FindViewById<Button>(Resource.Id.stop);
             stop.Click += Stop_Click;
             picture = FindViewById<Button>(Resource.Id.picture);
             picture.Click += Picture_Click;
+
+            stillTimer.Elapsed += StillTimer_Elapsed;
 
             var cameraManager = (CameraManager)GetSystemService(CameraService);
 
@@ -166,10 +238,12 @@ namespace Android.ContinuousStills
             jpegSizes = StreamMap.GetOutputSizes((int)ImageFormatType.Jpeg);
             imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
-            baseDirectory = $"{ Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}";
+            baseDirectory = $"{StorageLocation}/{GetStoragePoint()}";
             Android.Util.Log.Warn("SubC", $"baseDirectory = {baseDirectory}");
             imageSaver = new ImageSaver(baseDirectory, imageReader);
             imageSaver.ImageFailed += ImageSaver_ImageFailed;
+            imageSaver.ImageSaved += ImageSaver_ImageSaved;
+
             imageReader.SetOnImageAvailableListener(imageSaver, handler);
             var previewSurface = new Surface(preview.SurfaceTexture);
             var imgReader = imageReader.Surface;
@@ -226,6 +300,15 @@ namespace Android.ContinuousStills
             isCancelled = true;
         }
 
+        private void ImageSaver_ImageSaved(object sender, string e)
+        {
+            RunOnUiThread(() =>
+            {
+                var toast = Toast.MakeText(this, e + " saved", ToastLength.Short);
+                toast.Show();
+            });
+        }
+
         private async Task InitializePreviewAsync(params Surface[] surfaces)
         {
             captureSession?.Close();
@@ -278,12 +361,21 @@ namespace Android.ContinuousStills
             Android.Util.Log.Warn("SubC", "start....");
             //StartContinuous();
 
-            continuous.StartContinousStills();
+            stillTimer.Start();
+        }
+
+        private void StillTimer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            RunOnUiThread(() =>
+            {
+                continuous.StartContinousStills();
+            });
         }
 
         private void Stop_Click(object sender, EventArgs e)
         {
-            continuous.StopContinuousStills();
+            // continuous.StopContinuousStills();
+            stillTimer.Stop();
         }
 
         private void Take()

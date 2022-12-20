@@ -3,8 +3,8 @@
   <PropertyGroup>
     <AndroidDesignerPreferredTheme>AppTheme</AndroidDesignerPreferredTheme>
     <AndroidDesignerPreferredDevice>Nexus 4</AndroidDesignerPreferredDevice>
-    <SelectedDevice>SubC-Imaging Rayfin %28192.168.2.99:5555%29</SelectedDevice>
-    <ActiveDebugProfile>SubC-Imaging Rayfin %28192.168.2.99:5555%29</ActiveDebugProfile>
+    <SelectedDevice>QUALCOMM MSM8996 for arm64</SelectedDevice>
+    <ActiveDebugProfile>QUALCOMM MSM8996 for arm64 %28Android 9.0 - API 28%29</ActiveDebugProfile>
     <SelectedPlatformGroup>PhysicalDevice</SelectedPlatformGroup>
   </PropertyGroup>
 </Project>
