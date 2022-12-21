@@ -42,6 +42,8 @@ namespace Android.ContinuousStills
             Camera.MainActivity.ShellSync($"chmod -R 777 \"{path}\"");
         }
 
+        public event EventHandler DriveFull;
+
         public event EventHandler ImageFailed;
 
         public event EventHandler<string> ImageSaved;
@@ -157,7 +159,8 @@ namespace Android.ContinuousStills
             {
                 //System.Diagnostics.Debug.WriteLine("Information: Filled drive!!");
                 Android.Util.Log.Info("SubC", "Information: Filled drive!!");
-                throw new FileNotFoundException("filled!!");
+                DriveFull?.Invoke(this, EventArgs.Empty);
+                // throw new FileNotFoundException("filled!!");
             }
             if (freeExternalStorage > 18759680)
             {

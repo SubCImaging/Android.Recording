@@ -243,6 +243,7 @@ namespace Android.ContinuousStills
             imageSaver = new ImageSaver(baseDirectory, imageReader);
             imageSaver.ImageFailed += ImageSaver_ImageFailed;
             imageSaver.ImageSaved += ImageSaver_ImageSaved;
+            imageSaver.DriveFull += ImageSaver_DriveFull;
 
             imageReader.SetOnImageAvailableListener(imageSaver, handler);
             var previewSurface = new Surface(preview.SurfaceTexture);
@@ -293,6 +294,11 @@ namespace Android.ContinuousStills
             imageSaver.SaveImage();
             Take();
             */
+        }
+
+        private void ImageSaver_DriveFull(object sender, EventArgs e)
+        {
+            stillTimer.Stop();
         }
 
         private void ImageSaver_ImageFailed(object sender, EventArgs e)
