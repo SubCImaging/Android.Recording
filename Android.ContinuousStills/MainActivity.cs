@@ -138,7 +138,7 @@ namespace Android.ContinuousStills
             {
                 // Run the command
                 var log = new System.Text.StringBuilder();
-                var process = Java.Lang.Runtime.GetRuntime().Exec(new[] { command });
+                var process = Java.Lang.Runtime.GetRuntime().Exec(new[] { "su", "-c", command });
                 var bufferedReader = new BufferedReader(
                 new InputStreamReader(process.InputStream));
 
