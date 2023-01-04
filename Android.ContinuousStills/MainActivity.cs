@@ -21,6 +21,7 @@ using Android.Util;
 using Android.Camera;
 using System.Timers;
 using System.Security.Cryptography.X509Certificates;
+using System.IO;
 
 namespace Android.ContinuousStills
 {
@@ -38,7 +39,8 @@ namespace Android.ContinuousStills
         public ImageReader imageReader;
 
         public AutoFitTextureView preview;
-        private readonly Timer stillTimer = new Timer(1000);
+        private readonly Timer stillTimer = new Timer(250);
+        private readonly Timer tempTimer = new Timer(TimeSpan.FromMinutes(1).TotalMilliseconds);
         private string baseDirectory;
         private ContinuousStillsManager continuous;
         private ImageSaver imageSaver;
@@ -48,7 +50,9 @@ namespace Android.ContinuousStills
         private CaptureRequest request;
         private CaptureRequest.Builder stillCaptureBuilder;
         private Button stop;
+        private string tempDirectory;
         public CameraDevice camera { get; set; }
+
         public CameraCaptureSession captureSession { get; set; }
 
         /// <summary>
@@ -203,6 +207,18 @@ namespace Android.ContinuousStills
             Take();
         }
 
+        /// <summary>
+        /// Gets the tempature of a given thermal_zone.
+        /// </summary>
+        /// <param name="zone">The thermal zone you want to check.</param>
+        /// <returns>The tempature of a given thermal_zone.</returns>
+        public string ThermalZoneTemperature(string zone)
+        {
+            var temperature = ShellSync($"cat sys/class/thermal/thermal_zone{zone}/temp");
+            //SubCLogger.Instance.Write(temperature + "," + DateTime.Now, "temperature.csv", LogDirectory);
+            return temperature;
+        }
+
         protected override async void OnCreate(Bundle savedInstanceState)
         {
             base.OnCreate(savedInstanceState);
@@ -222,7 +238,11 @@ namespace Android.ContinuousStills
             picture = FindViewById<Button>(Resource.Id.picture);
             picture.Click += Picture_Click;
 
+            tempTimer.Elapsed += TempTimer_Elapsed;
+
             stillTimer.Elapsed += StillTimer_Elapsed;
+
+            tempTimer.Start();
 
             var cameraManager = (CameraManager)GetSystemService(CameraService);
 
@@ -239,6 +259,12 @@ namespace Android.ContinuousStills
             imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
             baseDirectory = $"{StorageLocation}/{GetStoragePoint()}";
+
+            tempDirectory = $"{baseDirectory}/Temp/";
+
+            ShellSync($"mkdir -p \"{tempDirectory}\"");
+            ShellSync($"chmod -R 777 \"{tempDirectory}\"");
+
             Android.Util.Log.Warn("SubC", $"baseDirectory = {baseDirectory}");
             imageSaver = new ImageSaver(baseDirectory, imageReader);
             imageSaver.ImageFailed += ImageSaver_ImageFailed;
@@ -392,6 +418,18 @@ namespace Android.ContinuousStills
 
             //captureSession.Capture(request, c, handler);
             captureSession.SetRepeatingRequest(request, c, handler);
+        }
+
+        private void TempTimer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            var log = DateTime.Now + "," + ThermalZoneTemperature("6");
+            Android.Util.Log.Warn("SubC_Temp", log);
+
+            using var t = System.IO.File.AppendText(tempDirectory + "temp.csv");
+            t.Write(log);
+
+            System.Console.WriteLine(log);
+            // SubCLogger.Instance.Write(temperature + "," + DateTime.Now, "temperature.csv", LogDirectory);
         }
     }
 }
