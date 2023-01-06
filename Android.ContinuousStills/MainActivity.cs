@@ -189,26 +189,26 @@ namespace Android.ContinuousStills
             base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
         }
 
-        public void StartContinuous()
-        {
-            if (camera == null)
-            {
-                return;
-            }
+        //public void StartContinuous()
+        //{
+        //    if (camera == null)
+        //    {
+        //        return;
+        //    }
 
-            stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
-            stillCaptureBuilder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
-            stillCaptureBuilder.Set(CaptureRequest.EdgeMode, (int)EdgeMode.Off);
-            stillCaptureBuilder.Set(CaptureRequest.NoiseReductionMode, (int)NoiseReductionMode.Off);
-            stillCaptureBuilder.Set(CaptureRequest.ColorCorrectionAberrationMode, (int)ColorCorrectionAberrationMode.Off);
-            stillCaptureBuilder.Set(CaptureRequest.ControlAfMode, (int)ControlAFMode.ContinuousPicture);
-            stillCaptureBuilder.AddTarget(imageReader.Surface);
-            stillCaptureBuilder.AddTarget(new Surface(preview.SurfaceTexture));
+        //    stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
+        //    stillCaptureBuilder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
+        //    stillCaptureBuilder.Set(CaptureRequest.EdgeMode, (int)EdgeMode.Off);
+        //    stillCaptureBuilder.Set(CaptureRequest.NoiseReductionMode, (int)NoiseReductionMode.Off);
+        //    stillCaptureBuilder.Set(CaptureRequest.ColorCorrectionAberrationMode, (int)ColorCorrectionAberrationMode.Off);
+        //    stillCaptureBuilder.Set(CaptureRequest.ControlAfMode, (int)ControlAFMode.ContinuousPicture);
+        //    stillCaptureBuilder.AddTarget(imageReader.Surface);
+        //    stillCaptureBuilder.AddTarget(new Surface(preview.SurfaceTexture));
 
-            request = stillCaptureBuilder.Build();
+        //    request = stillCaptureBuilder.Build();
 
-            Take();
-        }
+        //    Take();
+        //}
 
         /// <summary>
         /// Gets the tempature of a given thermal_zone.
@@ -241,11 +241,7 @@ namespace Android.ContinuousStills
             picture = FindViewById<Button>(Resource.Id.picture);
             picture.Click += Picture_Click;
 
-            //tempTimer.Elapsed += TempTimer_Elapsed;
-
             stillTimer.Elapsed += StillTimer_Elapsed;
-
-            //tempTimer.Start();
 
             var cameraManager = (CameraManager)GetSystemService(CameraService);
 
@@ -281,50 +277,6 @@ namespace Android.ContinuousStills
             continuous = new ContinuousStillsManager(previewSurface, camera, imgReader, captureSession);
         }
 
-        private void C_SequenceComplete(object sender, EventArgs e)
-        {
-            Android.Util.Log.Warn("SubC", "C_SequenceComplete");
-            return;
-            /*
-            var freeExternalStorage = GetDiskSpaceRemaining();
-
-            if (freeExternalStorage < 18759680)
-            {
-                //System.Diagnostics.Debug.WriteLine("Information: Filled drive!!");
-                Android.Util.Log.Info("SubC", "Information: Filled drive!!");
-                return;
-            }
-
-            //System.Diagnostics.Debug.WriteLine("Warning: Freespace: " + freeExternalStorage);
-            Android.Util.Log.Info("SubC", "Warning: Freespace: " + freeExternalStorage);
-
-            if (isCancelled)
-            {
-                //System.Diagnostics.Debug.WriteLine("Cancelled!!");
-                Android.Util.Log.Info("SubC", "Cancelled!!");
-
-                imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
-
-                baseDirectory = $"{ Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}";
-
-                imageSaver = new ImageSaver(baseDirectory, imageReader);
-                imageSaver.ImageFailed += ImageSaver_ImageFailed;
-                imageReader.SetOnImageAvailableListener(imageSaver, null);
-
-                await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
-
-                isCancelled = false;
-
-                StartContinuous();
-                return;
-            }
-
-            //Take();
-            imageSaver.SaveImage();
-            Take();
-            */
-        }
-
         private void ImageSaver_DriveFull(object sender, EventArgs e)
         {
             stillTimer.Stop();
@@ -338,18 +290,19 @@ namespace Android.ContinuousStills
         private void ImageSaver_ImageSaved(object sender, string e)
         {
             var isGreen = GreenPictureDetector.ImageIsGreen(new FileInfo(e));
+            var temps = ShellSync("cat /sys/class/thermal/thermal_zone*/temp").Replace("\n", ",");
 
-            var log = $"{DateTime.Now},{ThermalZoneTemperature("6")},{e},{isGreen}";
+            var log = $"{DateTime.Now},{e},{isGreen},{temps}";
             Android.Util.Log.Warn("SubC_Temp", log);
 
             using var t = System.IO.File.AppendText(tempDirectory + "temp.csv");
             t.WriteLine(log);
 
-            //RunOnUiThread(() =>
-            //{
-            //    var toast = Toast.MakeText(this, e + " saved", ToastLength.Short);
-            //    toast.Show();
-            //});
+            if (isGreen)
+            {
+                using var greenLog = System.IO.File.AppendText(tempDirectory + $"green.log");
+                greenLog.WriteLine(log);
+            }
         }
 
         private async Task InitializePreviewAsync(params Surface[] surfaces)
@@ -402,8 +355,6 @@ namespace Android.ContinuousStills
         private void Picture_Click(object sender, EventArgs e)
         {
             Android.Util.Log.Warn("SubC", "start....");
-            //StartContinuous();
-
             stillTimer.Start();
         }
 
@@ -417,30 +368,7 @@ namespace Android.ContinuousStills
 
         private void Stop_Click(object sender, EventArgs e)
         {
-            // continuous.StopContinuousStills();
             stillTimer.Stop();
-        }
-
-        private void Take()
-        {
-            Android.Util.Log.Warn("SubC", "take....");
-            var c = new CaptureCallback();
-            //c.SequenceComplete += C_SequenceComplete;
-
-            //captureSession.Capture(request, c, handler);
-            captureSession.SetRepeatingRequest(request, c, handler);
-        }
-
-        private void TempTimer_Elapsed(object sender, ElapsedEventArgs e)
-        {
-            var log = DateTime.Now + "," + ThermalZoneTemperature("6");
-            Android.Util.Log.Warn("SubC_Temp", log);
-
-            using var t = System.IO.File.AppendText(tempDirectory + "temp.csv");
-            t.Write(log);
-
-            System.Console.WriteLine(log);
-            // SubCLogger.Instance.Write(temperature + "," + DateTime.Now, "temperature.csv", LogDirectory);
         }
     }
 }
