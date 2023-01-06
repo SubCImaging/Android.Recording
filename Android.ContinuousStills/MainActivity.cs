@@ -22,6 +22,7 @@ using Android.Camera;
 using System.Timers;
 using System.Security.Cryptography.X509Certificates;
 using System.IO;
+using SubCTools.Droid.Tools;
 
 namespace Android.ContinuousStills
 {
@@ -39,9 +40,11 @@ namespace Android.ContinuousStills
         public ImageReader imageReader;
 
         public AutoFitTextureView preview;
-        private readonly Timer stillTimer = new Timer(250);
-        private readonly Timer tempTimer = new Timer(TimeSpan.FromMinutes(1).TotalMilliseconds);
+        private readonly Timer stillTimer = new Timer(333);
+
+        //private readonly Timer tempTimer = new Timer(TimeSpan.FromMinutes(1).TotalMilliseconds);
         private string baseDirectory;
+
         private ContinuousStillsManager continuous;
         private ImageSaver imageSaver;
         private bool isCancelled;
@@ -214,7 +217,7 @@ namespace Android.ContinuousStills
         /// <returns>The tempature of a given thermal_zone.</returns>
         public string ThermalZoneTemperature(string zone)
         {
-            var temperature = ShellSync($"cat sys/class/thermal/thermal_zone{zone}/temp");
+            var temperature = ShellSync($"cat sys/class/thermal/thermal_zone{zone}/temp").TrimEnd();
             //SubCLogger.Instance.Write(temperature + "," + DateTime.Now, "temperature.csv", LogDirectory);
             return temperature;
         }
@@ -238,11 +241,11 @@ namespace Android.ContinuousStills
             picture = FindViewById<Button>(Resource.Id.picture);
             picture.Click += Picture_Click;
 
-            tempTimer.Elapsed += TempTimer_Elapsed;
+            //tempTimer.Elapsed += TempTimer_Elapsed;
 
             stillTimer.Elapsed += StillTimer_Elapsed;
 
-            tempTimer.Start();
+            //tempTimer.Start();
 
             var cameraManager = (CameraManager)GetSystemService(CameraService);
 
@@ -334,11 +337,19 @@ namespace Android.ContinuousStills
 
         private void ImageSaver_ImageSaved(object sender, string e)
         {
-            RunOnUiThread(() =>
-            {
-                var toast = Toast.MakeText(this, e + " saved", ToastLength.Short);
-                toast.Show();
-            });
+            var isGreen = GreenPictureDetector.ImageIsGreen(new FileInfo(e));
+
+            var log = $"{DateTime.Now},{ThermalZoneTemperature("6")},{e},{isGreen}";
+            Android.Util.Log.Warn("SubC_Temp", log);
+
+            using var t = System.IO.File.AppendText(tempDirectory + "temp.csv");
+            t.WriteLine(log);
+
+            //RunOnUiThread(() =>
+            //{
+            //    var toast = Toast.MakeText(this, e + " saved", ToastLength.Short);
+            //    toast.Show();
+            //});
         }
 
         private async Task InitializePreviewAsync(params Surface[] surfaces)
