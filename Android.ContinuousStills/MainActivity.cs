@@ -23,6 +23,7 @@ using System.Timers;
 using System.Security.Cryptography.X509Certificates;
 using System.IO;
 using SubCTools.Droid.Tools;
+using Java.Time.Temporal;
 
 namespace Android.ContinuousStills
 {
@@ -46,14 +47,17 @@ namespace Android.ContinuousStills
         private string baseDirectory;
 
         private ContinuousStillsManager continuous;
+        private double greenImages;
         private ImageSaver imageSaver;
         private bool isCancelled;
         private Size[] jpegSizes;
         private Button picture;
         private CaptureRequest request;
+        private DateTime startTime;
         private CaptureRequest.Builder stillCaptureBuilder;
         private Button stop;
         private string tempDirectory;
+        private double totalimages;
         public CameraDevice camera { get; set; }
 
         public CameraCaptureSession captureSession { get; set; }
@@ -177,6 +181,17 @@ namespace Android.ContinuousStills
             return free;
         }
 
+        /// <summary>
+        /// Gets the tempature of a given thermal_zone.
+        /// </summary>
+        /// <param name="zone">The thermal zone you want to check.</param>
+        /// <returns>The tempature of a given thermal_zone.</returns>
+        public string GetThermalZoneTemperature(string zone)
+        {
+            var temperature = ShellSync($"cat sys/class/thermal/thermal_zone{zone}/temp").TrimEnd();
+            return temperature;
+        }
+
         public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
         {
             Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -187,39 +202,6 @@ namespace Android.ContinuousStills
             }
 
             base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
-        }
-
-        //public void StartContinuous()
-        //{
-        //    if (camera == null)
-        //    {
-        //        return;
-        //    }
-
-        //    stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
-        //    stillCaptureBuilder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
-        //    stillCaptureBuilder.Set(CaptureRequest.EdgeMode, (int)EdgeMode.Off);
-        //    stillCaptureBuilder.Set(CaptureRequest.NoiseReductionMode, (int)NoiseReductionMode.Off);
-        //    stillCaptureBuilder.Set(CaptureRequest.ColorCorrectionAberrationMode, (int)ColorCorrectionAberrationMode.Off);
-        //    stillCaptureBuilder.Set(CaptureRequest.ControlAfMode, (int)ControlAFMode.ContinuousPicture);
-        //    stillCaptureBuilder.AddTarget(imageReader.Surface);
-        //    stillCaptureBuilder.AddTarget(new Surface(preview.SurfaceTexture));
-
-        //    request = stillCaptureBuilder.Build();
-
-        //    Take();
-        //}
-
-        /// <summary>
-        /// Gets the tempature of a given thermal_zone.
-        /// </summary>
-        /// <param name="zone">The thermal zone you want to check.</param>
-        /// <returns>The tempature of a given thermal_zone.</returns>
-        public string ThermalZoneTemperature(string zone)
-        {
-            var temperature = ShellSync($"cat sys/class/thermal/thermal_zone{zone}/temp").TrimEnd();
-            //SubCLogger.Instance.Write(temperature + "," + DateTime.Now, "temperature.csv", LogDirectory);
-            return temperature;
         }
 
         protected override async void OnCreate(Bundle savedInstanceState)
@@ -287,12 +269,22 @@ namespace Android.ContinuousStills
             isCancelled = true;
         }
 
-        private void ImageSaver_ImageSaved(object sender, string e)
+        private async void ImageSaver_ImageSaved(object sender, string e)
         {
             var isGreen = GreenPictureDetector.ImageIsGreen(new FileInfo(e));
+
+            totalimages++;
+
+            if (isGreen)
+            {
+                greenImages++;
+            }
+
             var temps = ShellSync("cat /sys/class/thermal/thermal_zone*/temp").Replace("\n", ",");
 
-            var log = $"{DateTime.Now},{e},{isGreen},{temps}";
+            var per = Math.Round(greenImages / totalimages * 100, 2);
+
+            var log = $"{DateTime.Now},{e},{isGreen},{greenImages},{totalimages},{per},{Math.Round((DateTime.Now - startTime).TotalHours, 2)},{temps}";
             Android.Util.Log.Warn("SubC_Temp", log);
 
             using var t = System.IO.File.AppendText(tempDirectory + "temp.csv");
@@ -300,8 +292,16 @@ namespace Android.ContinuousStills
 
             if (isGreen)
             {
+                stillTimer.Stop();
+
                 using var greenLog = System.IO.File.AppendText(tempDirectory + $"green.log");
                 greenLog.WriteLine(log);
+
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(10));
+                    stillTimer.Start();
+                });
             }
         }
 
@@ -354,6 +354,7 @@ namespace Android.ContinuousStills
 
         private void Picture_Click(object sender, EventArgs e)
         {
+            startTime = DateTime.Now;
             Android.Util.Log.Warn("SubC", "start....");
             stillTimer.Start();
         }
