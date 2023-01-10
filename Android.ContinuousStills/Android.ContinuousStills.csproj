@@ -65,6 +65,7 @@
     <Reference Include="System.Numerics.Vectors" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="GreenPictureDetector.cs" />
     <Compile Include="ContinuousStillsManager.cs" />
     <Compile Include="ImageSaver.cs" />
     <Compile Include="MainActivity.cs" />
