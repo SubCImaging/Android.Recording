@@ -6,6 +6,8 @@ namespace Android.Camera
 {
     public class CaptureCallback : CameraCaptureSession.CaptureCallback
     {
+        public event EventHandler CaptureFailed;
+
         public event EventHandler SequenceComplete;
 
         public override void OnCaptureBufferLost(CameraCaptureSession session, CaptureRequest request, Surface target, long frameNumber)
@@ -24,6 +26,7 @@ namespace Android.Camera
 
         public override void OnCaptureFailed(CameraCaptureSession session, CaptureRequest request, CaptureFailure failure)
         {
+            CaptureFailed?.Invoke(this, EventArgs.Empty);
             //System.Diagnostics.Debug.WriteLine($"Capture failed");
             Android.Util.Log.Info("SubC", "Capture failed");
 

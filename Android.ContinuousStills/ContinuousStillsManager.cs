@@ -12,11 +12,16 @@ using System.Text;
 using Android.Camera;
 using Android.Media;
 using Android.Graphics;
+using System.Timers;
 
 namespace Android.ContinuousStills
 {
     public class ContinuousStillsManager
     {
+        private readonly Activity activity;
+        private readonly CaptureCallback c;
+        private readonly Timer restartTimer = new Timer(5000) { AutoReset = false };
+        private readonly Timer stillTimer = new Timer(333);
         private CameraDevice camera;
 
         private CameraCaptureSession captureSession;
@@ -26,12 +31,24 @@ namespace Android.ContinuousStills
         private CaptureRequest request;
         private CaptureRequest.Builder stillCaptureBuilder;
 
-        public ContinuousStillsManager(Surface previewSurface, CameraDevice camera, Surface imgReader, CameraCaptureSession captureSession)
+        public ContinuousStillsManager(
+            Surface previewSurface,
+            CameraDevice camera,
+            Surface imgReader,
+            CameraCaptureSession captureSession,
+            Activity activity)
         {
             this.previewSurface = previewSurface;
             this.camera = camera;
             this.imgReader = imgReader;
             this.captureSession = captureSession;
+            this.activity = activity;
+            c = new CaptureCallback();
+            c.CaptureFailed += C_CaptureFailed;
+
+            stillTimer.Elapsed += StillTimer_Elapsed;
+
+            restartTimer.Elapsed += (_, __) => stillTimer.Start();
         }
 
         public void StartContinousStills()
@@ -52,19 +69,36 @@ namespace Android.ContinuousStills
 
             request = stillCaptureBuilder.Build();
 
-            Take();
+            stillTimer.Start();
         }
 
         public void StopContinuousStills()
         {
-            captureSession.StopRepeating();
+            stillTimer.Stop();
         }
 
-        public void Take()
+        private void C_CaptureFailed(object sender, EventArgs e)
+        {
+            Android.Util.Log.Error("SubC", "Capture failed");
+            stillTimer.Stop();
+
+            restartTimer.Stop();
+            restartTimer.Start();
+        }
+
+        private void StillTimer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            Take();
+        }
+
+        private void Take()
         {
             Android.Util.Log.Warn("SubC", "take....");
-            var c = new CaptureCallback();
-            captureSession.Capture(request, c, handler);
+
+            activity.RunOnUiThread(() =>
+            {
+                captureSession.Capture(request, c, handler);
+            });
         }
     }
 }

@@ -41,7 +41,6 @@ namespace Android.ContinuousStills
         public ImageReader imageReader;
 
         public AutoFitTextureView preview;
-        private readonly Timer stillTimer = new Timer(333);
 
         //private readonly Timer tempTimer = new Timer(TimeSpan.FromMinutes(1).TotalMilliseconds);
         private string baseDirectory;
@@ -223,8 +222,6 @@ namespace Android.ContinuousStills
             picture = FindViewById<Button>(Resource.Id.picture);
             picture.Click += Picture_Click;
 
-            stillTimer.Elapsed += StillTimer_Elapsed;
-
             var cameraManager = (CameraManager)GetSystemService(CameraService);
 
             while (!preview.IsAvailable)
@@ -256,12 +253,12 @@ namespace Android.ContinuousStills
             var previewSurface = new Surface(preview.SurfaceTexture);
             var imgReader = imageReader.Surface;
             await InitializePreviewAsync(previewSurface, imgReader);
-            continuous = new ContinuousStillsManager(previewSurface, camera, imgReader, captureSession);
+            continuous = new ContinuousStillsManager(previewSurface, camera, imgReader, captureSession, this);
         }
 
         private void ImageSaver_DriveFull(object sender, EventArgs e)
         {
-            stillTimer.Stop();
+            continuous.StopContinuousStills();
         }
 
         private void ImageSaver_ImageFailed(object sender, EventArgs e)
@@ -292,7 +289,7 @@ namespace Android.ContinuousStills
 
             if (isGreen)
             {
-                stillTimer.Stop();
+                continuous.StopContinuousStills();
 
                 using var greenLog = System.IO.File.AppendText(tempDirectory + $"green.log");
                 greenLog.WriteLine(log);
@@ -300,7 +297,7 @@ namespace Android.ContinuousStills
                 _ = Task.Run(async () =>
                 {
                     await Task.Delay(TimeSpan.FromSeconds(10));
-                    stillTimer.Start();
+                    continuous.StartContinousStills();
                 });
             }
         }
@@ -356,20 +353,12 @@ namespace Android.ContinuousStills
         {
             startTime = DateTime.Now;
             Android.Util.Log.Warn("SubC", "start....");
-            stillTimer.Start();
-        }
-
-        private void StillTimer_Elapsed(object sender, ElapsedEventArgs e)
-        {
-            RunOnUiThread(() =>
-            {
-                continuous.StartContinousStills();
-            });
+            continuous.StartContinousStills();
         }
 
         private void Stop_Click(object sender, EventArgs e)
         {
-            stillTimer.Stop();
+            continuous.StopContinuousStills();
         }
     }
 }
