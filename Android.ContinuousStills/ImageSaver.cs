@@ -59,7 +59,7 @@ namespace Android.ContinuousStills
 
         public void OnImageAvailable(ImageReader reader)
         {
-            Android.Util.Log.Info("SubC", "Image listener ... acquiring image");
+            Android.Util.Log.Warn("SubC", "Image listener ... acquiring image");
             Image image = reader.AcquireLatestImage();
             if (image == null)
             {
@@ -70,11 +70,11 @@ namespace Android.ContinuousStills
                 //     failed = 0;
                 //     ImageFailed?.Invoke(this, EventArgs.Empty);
                 // }
-                Android.Util.Log.Info("SubC", $"---> Acquiring image return null, failed {failed} time");
+                Android.Util.Log.Warn("SubC", $"---> Acquiring image return null, failed {failed} time");
                 return;
             }
 
-            Android.Util.Log.Info("SubC", "Image listener ... Image acquired");
+            Android.Util.Log.Warn("SubC", "Image listener ... Image acquired");
 
             var stillName = GetStillFile();
 
@@ -105,7 +105,7 @@ namespace Android.ContinuousStills
                 folderIndex++;
                 path = $"{dir}/pic{folderIndex}";
                 Camera.MainActivity.ShellSync($"mkdir -p \"{path}\"");
-                Camera.MainActivity.ShellSync($"chmod -R 777 \"{path}\"");
+                Camera.MainActivity.ShellSync($@"chmod -R 777 \mnt");
             }
 
             index++;
@@ -135,7 +135,7 @@ namespace Android.ContinuousStills
             catch (System.Exception e)
             {
                 //System.Console.WriteLine($"Error: Failed to save image {file.AbsolutePath} with exception: {e}");
-                Android.Util.Log.Info("SubC", $"Error: Failed to save image {file} with exception: {e}");
+                Android.Util.Log.Error("SubC", $"Error: Failed to save image {file} with exception: {e}");
 
                 return false;
             }
@@ -165,7 +165,7 @@ namespace Android.ContinuousStills
             if (freeExternalStorage > 18759680)
             {
                 //System.Diagnostics.Debug.WriteLine("Warning: Freespace: " + freeExternalStorage);
-                Android.Util.Log.Info("SubC", "Warning: Freespace: " + freeExternalStorage);
+                Android.Util.Log.Warn("SubC", "Warning: Freespace: " + freeExternalStorage);
 
                 SaveImage(file, bytes);
             }

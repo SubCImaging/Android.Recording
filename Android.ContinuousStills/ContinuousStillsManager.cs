@@ -21,7 +21,7 @@ namespace Android.ContinuousStills
         private readonly Activity activity;
         private readonly CaptureCallback c;
         private readonly Timer restartTimer = new Timer(5000) { AutoReset = false };
-        private readonly Timer stillTimer = new Timer(333);
+        private readonly Timer stillTimer = new Timer(500);
         private CameraDevice camera;
 
         private CameraCaptureSession captureSession;
@@ -51,7 +51,7 @@ namespace Android.ContinuousStills
             restartTimer.Elapsed += (_, __) => stillTimer.Start();
         }
 
-        public void StartContinousStills()
+        public void Start()
         {
             if (camera == null)
             {
@@ -72,7 +72,7 @@ namespace Android.ContinuousStills
             stillTimer.Start();
         }
 
-        public void StopContinuousStills()
+        public void Stop()
         {
             stillTimer.Stop();
         }

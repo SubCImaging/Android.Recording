@@ -24,6 +24,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.IO;
 using SubCTools.Droid.Tools;
 using Java.Time.Temporal;
+using Android.Content.Res;
 
 namespace Android.ContinuousStills
 {
@@ -41,6 +42,12 @@ namespace Android.ContinuousStills
         public ImageReader imageReader;
 
         public AutoFitTextureView preview;
+
+        private readonly Timer stopTimer = new Timer()
+        {
+            Interval = TimeSpan.FromHours(6).TotalMilliseconds,
+            AutoReset = false,
+        };
 
         //private readonly Timer tempTimer = new Timer(TimeSpan.FromMinutes(1).TotalMilliseconds);
         private string baseDirectory;
@@ -205,13 +212,17 @@ namespace Android.ContinuousStills
 
         protected override async void OnCreate(Bundle savedInstanceState)
         {
+            Android.Util.Log.Warn("SubC", $"Continuous Stills Started!");
+
             base.OnCreate(savedInstanceState);
             Xamarin.Essentials.Platform.Init(this, savedInstanceState);
             // Set our view from the "main" layout resource
             SetContentView(Resource.Layout.activity_main);
+
+            stopTimer.Elapsed += StopTimer_Elapsed;
+
             // set up the camera
             // get the preview to display video
-
             var result = ShellSync($@"ls").Split('\n');
             result = ShellSync($@"ls /mnt").Split('\n');
             result = ShellSync($@"ls /mnt/expand").Split('\n');
@@ -258,7 +269,7 @@ namespace Android.ContinuousStills
 
         private void ImageSaver_DriveFull(object sender, EventArgs e)
         {
-            continuous.StopContinuousStills();
+            continuous.Stop();
         }
 
         private void ImageSaver_ImageFailed(object sender, EventArgs e)
@@ -268,7 +279,11 @@ namespace Android.ContinuousStills
 
         private async void ImageSaver_ImageSaved(object sender, string e)
         {
+            Android.Util.Log.Warn("SubC", $"image saved: {e}");
+
             var isGreen = GreenPictureDetector.ImageIsGreen(new FileInfo(e));
+
+            Android.Util.Log.Warn("SubC", $"image: {e} is green {isGreen}");
 
             totalimages++;
 
@@ -281,25 +296,27 @@ namespace Android.ContinuousStills
 
             var per = Math.Round(greenImages / totalimages * 100, 2);
 
-            var log = $"{DateTime.Now},{e},{isGreen},{greenImages},{totalimages},{per},{Math.Round((DateTime.Now - startTime).TotalHours, 2)},{temps}";
-            Android.Util.Log.Warn("SubC_Temp", log);
+            var log = $"{DateTime.Now},{e},{isGreen},{greenImages},{totalimages},{per},{Math.Round((DateTime.Now - startTime).TotalHours, 2)},{GetDiskSpaceRemaining() - 18759680},{temps}";
+            Android.Util.Log.Warn("SubC", log);
 
             using var t = System.IO.File.AppendText(tempDirectory + "temp.csv");
             t.WriteLine(log);
 
-            if (isGreen)
+            if (!isGreen)
             {
-                continuous.StopContinuousStills();
-
-                using var greenLog = System.IO.File.AppendText(tempDirectory + $"green.log");
-                greenLog.WriteLine(log);
-
-                _ = Task.Run(async () =>
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(10));
-                    continuous.StartContinousStills();
-                });
+                return;
             }
+
+            continuous.Stop();
+
+            using var greenLog = System.IO.File.AppendText(tempDirectory + $"green.log");
+            greenLog.WriteLine(log);
+
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(TimeSpan.FromSeconds(10));
+                continuous.Start();
+            });
         }
 
         private async Task InitializePreviewAsync(params Surface[] surfaces)
@@ -353,12 +370,20 @@ namespace Android.ContinuousStills
         {
             startTime = DateTime.Now;
             Android.Util.Log.Warn("SubC", "start....");
-            continuous.StartContinousStills();
+            continuous.Start();
+            stopTimer.Start();
         }
 
         private void Stop_Click(object sender, EventArgs e)
         {
-            continuous.StopContinuousStills();
+            stopTimer.Stop();
+            continuous.Stop();
+        }
+
+        private void StopTimer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            stopTimer.Stop();
+            continuous.Stop();
         }
     }
 }
