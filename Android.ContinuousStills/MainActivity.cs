@@ -250,7 +250,7 @@ namespace Android.ContinuousStills
             jpegSizes = StreamMap.GetOutputSizes((int)ImageFormatType.Jpeg);
             imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
-            baseDirectory = "/dev/pics/"; // $"{StorageLocation}/{GetStoragePoint()}";
+            baseDirectory = $"{StorageLocation}/{GetStoragePoint()}";
 
             tempDirectory = $"{baseDirectory}/Temp/";
 
