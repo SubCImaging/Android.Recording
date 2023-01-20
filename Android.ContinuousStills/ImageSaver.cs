@@ -18,28 +18,30 @@ namespace Android.ContinuousStills
     public class ImageSaver : Java.Lang.Object, ImageReader.IOnImageAvailableListener
     {
         private readonly ImageReader reader;
+        private readonly Action<string> shell;
         private string baseDirectory;
         private int failed;
         private int folderIndex = 0;
 
-        private QueueSave handler;
         private int index = 0;
         private int max = 1000;
         private ConcurrentQueue<(Image, File)> queue = new ConcurrentQueue<(Image, File)>();
         private int totalIndex = 0;
 
-        public ImageSaver(string baseDirectory, ImageReader reader)
+        public ImageSaver(
+            string baseDirectory,
+            ImageReader reader,
+            Action<string> shell)
         {
             this.baseDirectory = baseDirectory;
             this.reader = reader;
-
-            handler = new QueueSave("QueueSave", queue);
+            this.shell = shell;
 
             var dir = $"{baseDirectory}/Stills/";
 
             string path = $"{dir}/pic{folderIndex}";
-            Camera.MainActivity.ShellSync($"mkdir -p \"{path}\"");
-            Camera.MainActivity.ShellSync($"chmod -R 777 \"{path}\"");
+            shell($"mkdir -p \"{path}\"");
+            shell($"chmod -R 777 \"{path}\"");
         }
 
         public event EventHandler DriveFull;
@@ -50,8 +52,6 @@ namespace Android.ContinuousStills
 
         public double GetDiskSpaceRemaining()
         {
-            baseDirectory = $"{Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}";
-
             var fs = new StatFs(baseDirectory);
             var free = fs.AvailableBlocksLong * fs.BlockSizeLong;
             return free;
@@ -104,8 +104,8 @@ namespace Android.ContinuousStills
                 index = 0;
                 folderIndex++;
                 path = $"{dir}/pic{folderIndex}";
-                Camera.MainActivity.ShellSync($"mkdir -p \"{path}\"");
-                Camera.MainActivity.ShellSync($@"chmod -R 777 \mnt");
+                shell($"mkdir -p \"{path}\"");
+                shell($@"chmod -R 777 \mnt");
             }
 
             index++;

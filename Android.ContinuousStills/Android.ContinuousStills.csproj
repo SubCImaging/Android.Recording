@@ -65,6 +65,11 @@
     <Reference Include="System.Numerics.Vectors" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AutoFitTextureView.cs" />
+    <Compile Include="CameraErrorArgs.cs" />
+    <Compile Include="CameraSessionCallback.cs" />
+    <Compile Include="CameraStateCallback.cs" />
+    <Compile Include="CaptureCallback.cs" />
     <Compile Include="GreenPictureDetector.cs" />
     <Compile Include="ContinuousStillsManager.cs" />
     <Compile Include="ImageSaver.cs" />
@@ -111,12 +116,6 @@
     <PackageReference Include="Xamarin.AndroidX.AppCompat" Version="1.2.0.5" />
     <PackageReference Include="Xamarin.Google.Android.Material" Version="1.0.0.1" />
     <PackageReference Include="Xamarin.Essentials" Version="1.6.1" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Android.Camera\Android.Camera.csproj">
-      <Project>{60fa4c54-abb1-43e9-a148-939ca1850bf7}</Project>
-      <Name>Android.Camera</Name>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\Android\Xamarin.Android.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.

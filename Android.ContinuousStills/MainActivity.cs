@@ -18,7 +18,6 @@ using Android.Graphics;
 using System.Linq;
 using Javax.Xml.Transform;
 using Android.Util;
-using Android.Camera;
 using System.Timers;
 using System.Security.Cryptography.X509Certificates;
 using System.IO;
@@ -43,10 +42,15 @@ namespace Android.ContinuousStills
 
         public AutoFitTextureView preview;
 
-        private readonly Timer stopTimer = new Timer()
+        //private readonly Timer stopTimer = new Timer()
+        //{
+        //    Interval = TimeSpan.FromHours(6).TotalMilliseconds,
+        //    AutoReset = false,
+        //};
+
+        private readonly Timer cooldownTimer = new Timer()
         {
-            Interval = TimeSpan.FromHours(6).TotalMilliseconds,
-            AutoReset = false,
+            Interval = TimeSpan.FromMinutes(10).TotalMilliseconds,
         };
 
         //private readonly Timer tempTimer = new Timer(TimeSpan.FromMinutes(1).TotalMilliseconds);
@@ -55,12 +59,9 @@ namespace Android.ContinuousStills
         private ContinuousStillsManager continuous;
         private double greenImages;
         private ImageSaver imageSaver;
-        private bool isCancelled;
         private Size[] jpegSizes;
         private Button picture;
-        private CaptureRequest request;
         private DateTime startTime;
-        private CaptureRequest.Builder stillCaptureBuilder;
         private Button stop;
         private string tempDirectory;
         private double totalimages;
@@ -219,7 +220,9 @@ namespace Android.ContinuousStills
             // Set our view from the "main" layout resource
             SetContentView(Resource.Layout.activity_main);
 
-            stopTimer.Elapsed += StopTimer_Elapsed;
+            //stopTimer.Elapsed += StopTimer_Elapsed;
+
+            cooldownTimer.Elapsed += CooldownTimer_Elapsed;
 
             // set up the camera
             // get the preview to display video
@@ -247,7 +250,7 @@ namespace Android.ContinuousStills
             jpegSizes = StreamMap.GetOutputSizes((int)ImageFormatType.Jpeg);
             imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
-            baseDirectory = $"{StorageLocation}/{GetStoragePoint()}";
+            baseDirectory = "/dev/pics/"; // $"{StorageLocation}/{GetStoragePoint()}";
 
             tempDirectory = $"{baseDirectory}/Temp/";
 
@@ -255,7 +258,7 @@ namespace Android.ContinuousStills
             ShellSync($"chmod -R 777 \"{tempDirectory}\"");
 
             Android.Util.Log.Warn("SubC", $"baseDirectory = {baseDirectory}");
-            imageSaver = new ImageSaver(baseDirectory, imageReader);
+            imageSaver = new ImageSaver(baseDirectory, imageReader, s => ShellSync(s));
             imageSaver.ImageFailed += ImageSaver_ImageFailed;
             imageSaver.ImageSaved += ImageSaver_ImageSaved;
             imageSaver.DriveFull += ImageSaver_DriveFull;
@@ -267,14 +270,23 @@ namespace Android.ContinuousStills
             continuous = new ContinuousStillsManager(previewSurface, camera, imgReader, captureSession, this);
         }
 
+        private async void CooldownTimer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            continuous.Stop();
+
+            await Task.Delay(2000);
+
+            continuous.Stop();
+        }
+
         private void ImageSaver_DriveFull(object sender, EventArgs e)
         {
+            cooldownTimer.Stop();
             continuous.Stop();
         }
 
         private void ImageSaver_ImageFailed(object sender, EventArgs e)
         {
-            isCancelled = true;
         }
 
         private async void ImageSaver_ImageSaved(object sender, string e)
@@ -371,18 +383,19 @@ namespace Android.ContinuousStills
             startTime = DateTime.Now;
             Android.Util.Log.Warn("SubC", "start....");
             continuous.Start();
-            stopTimer.Start();
+            //stopTimer.Start();
         }
 
         private void Stop_Click(object sender, EventArgs e)
         {
-            stopTimer.Stop();
+            cooldownTimer.Stop();
+            //stopTimer.Stop();
             continuous.Stop();
         }
 
         private void StopTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
-            stopTimer.Stop();
+            //stopTimer.Stop();
             continuous.Stop();
         }
     }

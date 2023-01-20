@@ -9,7 +9,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Android.Camera;
 using Android.Media;
 using Android.Graphics;
 using System.Timers;
