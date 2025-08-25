@@ -122,7 +122,7 @@ namespace Android.ContinuousStills
 
             stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.ZeroShutterLag);
             stillCaptureBuilder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
-            stillCaptureBuilder.Set(CaptureRequest.JpegQuality, (sbyte)40);
+            stillCaptureBuilder.Set(CaptureRequest.JpegQuality, (sbyte)90);
 
             //stillCaptureBuilder.Set(CaptureRequest.EdgeMode, (int)EdgeMode.Off);
             //stillCaptureBuilder.Set(CaptureRequest.NoiseReductionMode, (int)NoiseReductionMode.Off);
