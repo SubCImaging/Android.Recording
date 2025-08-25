@@ -36,36 +36,9 @@ namespace Android.ContinuousStills
 
         public event EventHandler ImageFailed;
 
-        //public event EventHandler<string> ImageSaved;
-
         public void OnImageAvailable(ImageReader reader)
         {
             Android.Util.Log.Info("SubC", "Image listener ... acquiring image");
-            //Image image = reader.AcquireNextImage();
-
-            //var attempts = 0;
-
-            //while (image == null)
-            //{
-            //    attempts++;
-
-            //    if (attempts > 20)
-            //    {
-            //        Android.Util.Log.Info("SubC", "Image listener ... Unable to acquire image");
-
-            //        if (queue.Count > 0)
-            //        {
-            //            Android.Util.Log.Info("SubC", "Image listener ... Running");
-            //            handler.Run();
-            //        }
-
-            //        break;
-            //    }
-
-            //    await Task.Delay(50);
-
-            //    image = reader.AcquireNextImage();
-            //}
             Image image = reader.AcquireLatestImage();
             if (image == null)
             {
@@ -94,17 +67,6 @@ namespace Android.ContinuousStills
 
             Camera.MainActivity.ShellSync($"chmod -R 777 \"{dir}\"");
 
-            ////            System.Diagnostics.Debug.WriteLine($"Information: Starting to capture {index}: " + file.Path);
-            //Android.Util.Log.Info("SubC", $"Information: Starting to capture { index}: " + file.Path);
-
-            //queue.Enqueue((image, file));
-
-            //if (queue.Count >= 10)
-            //{
-            //    //System.Diagnostics.Debug.WriteLine("---> Running");
-            //    Android.Util.Log.Info("SubC", "Image listener ... Running in queue");
-            //    handler.Run();
-            //}
             index++;
             //ImageSaved?.Invoke(this, file.AbsolutePath);
             Android.Util.Log.Info("SubC", $"+++> Image {index} acquired");
@@ -124,7 +86,7 @@ namespace Android.ContinuousStills
 
             var dir = $"{baseDirectory}/Stills";
 
-            string path = $"{dir}/again-{folderIndex}";
+            var path = $"{dir}/pic{folderIndex}";
 
             if (index >= max)
             {
@@ -139,7 +101,6 @@ namespace Android.ContinuousStills
 
             var file = new File(path, fileName);
 
-            //System.Diagnostics.Debug.WriteLine($"{file}");
             Android.Util.Log.Info("SubC", $"{file}");
 
             return file;

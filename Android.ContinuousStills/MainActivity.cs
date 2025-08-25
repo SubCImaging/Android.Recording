@@ -1,4 +1,4 @@
-﻿using Android.App;
+using Android.App;
 using Android.Hardware.Camera2;
 using Android.OS;
 using Android.Runtime;
