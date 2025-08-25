@@ -50,7 +50,7 @@ namespace Android.ContinuousStills
             buffer.Get(bytes);
 
             //System.Diagnostics.Debug.WriteLine($"Saving: {file}");
-            Android.Util.Log.Info("SubC", $"Saving: {file}");
+            // Android.Util.Log.Info("SubC", $"Saving: {file}");
 
             SaveImage(file, bytes);
 

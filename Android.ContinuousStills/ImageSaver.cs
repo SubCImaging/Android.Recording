@@ -10,26 +10,30 @@ using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
+using static Android.Media.ImageReader;
 
 namespace Android.ContinuousStills
 {
-    public class ImageSaver
+    public class ImageSaver : Java.Lang.Object, IOnImageAvailableListener
     {
         private readonly string baseDirectory;
-        private readonly ImageReader reader;
+
+        //private readonly ImageReader reader;
         private int failed;
+
         private int folderIndex = 0;
 
         private QueueSave handler;
         private int index = 0;
 
+        private bool isSaving = false;
         private int max = 1000;
         private ConcurrentQueue<(Image, File)> queue = new ConcurrentQueue<(Image, File)>();
 
-        public ImageSaver(string baseDirectory, ImageReader reader)
+        public ImageSaver(string baseDirectory)//, ImageReader reader)
         {
             this.baseDirectory = baseDirectory;
-            this.reader = reader;
+            //this.reader = reader;
 
             handler = new QueueSave("QueueSave", queue);
         }
@@ -38,7 +42,14 @@ namespace Android.ContinuousStills
 
         public void OnImageAvailable(ImageReader reader)
         {
-            Android.Util.Log.Info("SubC", "Image listener ... acquiring image");
+            if (isSaving)
+            {
+                return;
+            }
+
+            isSaving = true;
+
+            // Android.Util.Log.Info("SubC", "Image listener ... acquiring image");
             Image image = reader.AcquireLatestImage();
             if (image == null)
             {
@@ -50,10 +61,13 @@ namespace Android.ContinuousStills
                     ImageFailed?.Invoke(this, EventArgs.Empty);
                 }
                 Android.Util.Log.Info("SubC", $"---> Acquiring image return null, failed {failed} time");
+
+                isSaving = false;
+
                 return;
             }
 
-            Android.Util.Log.Info("SubC", "Image listener ... Image acquired");
+            // Android.Util.Log.Info("SubC", "Image listener ... Image acquired");
 
             var file = GetStillFile();
             var dir = file.Parent;
@@ -69,16 +83,19 @@ namespace Android.ContinuousStills
 
             index++;
             //ImageSaved?.Invoke(this, file.AbsolutePath);
-            Android.Util.Log.Info("SubC", $"+++> Image {index} acquired");
+            // Android.Util.Log.Info("SubC", $"+++> Image {index} acquired");
             QueueSave.WriteJpeg(image, GetStillFile());
             Android.Util.Log.Info("SubC", $"+++> Image {index} saved");
-            image.Close();
+
+            isSaving = false;
+
+            // image.Close();
         }
 
-        public void SaveImage()
-        {
-            OnImageAvailable(reader);
-        }
+        //public void SaveImage()
+        //{
+        //    OnImageAvailable(reader);
+        //}
 
         private File GetStillFile()
         {
@@ -97,11 +114,11 @@ namespace Android.ContinuousStills
                 Camera.MainActivity.ShellSync($"chmod -R 777 \"{path}\"");
             }
 
-            index++;
+            // index++;
 
             var file = new File(path, fileName);
 
-            Android.Util.Log.Info("SubC", $"{file}");
+            // Android.Util.Log.Info("SubC", $"{file}");
 
             return file;
         }

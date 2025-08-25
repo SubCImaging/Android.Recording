@@ -35,8 +35,9 @@ namespace Android.ContinuousStills
         private ImageReader imageReader;
         private ImageSaver imageSaver;
 
-        private bool isCancelled;
+        //private bool isCancelled;
         private Size[] jpegSizes;
+
         private Button picture;
         private AutoFitTextureView preview;
         private CaptureRequest request;
@@ -179,10 +180,11 @@ namespace Android.ContinuousStills
 
             baseDirectory = $"{Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}/DCIM";
 
-            imageSaver = new ImageSaver(baseDirectory, imageReader);
-            imageSaver.ImageFailed += ImageSaver_ImageFailed;
+            imageSaver = new ImageSaver(baseDirectory);//, imageReader);
+            // imageSaver.ImageFailed += ImageSaver_ImageFailed;
 
-            // imageReader.SetOnImageAvailableListener(imageSaver, handler);
+            imageReader.SetOnImageAvailableListener(imageSaver, handler);
+
             await InitializePreviewAsync(framerate, new Surface(preview.SurfaceTexture), imageReader.Surface);
         }
 
@@ -200,35 +202,37 @@ namespace Android.ContinuousStills
             //System.Diagnostics.Debug.WriteLine("Warning: Freespace: " + freeExternalStorage);
             Android.Util.Log.Info("SubC", "Warning: Freespace: " + freeExternalStorage);
 
-            if (isCancelled)
-            {
-                //System.Diagnostics.Debug.WriteLine("Cancelled!!");
-                Android.Util.Log.Info("SubC", "Cancelled!!");
+            // imageSaver.OnImageAvailable(imageReader);
 
-                imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
+            //if (isCancelled)
+            //{
+            //    //System.Diagnostics.Debug.WriteLine("Cancelled!!");
+            //    Android.Util.Log.Info("SubC", "Cancelled!!");
 
-                baseDirectory = $"{Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}/DCIM";
+            //    imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
-                imageSaver = new ImageSaver(baseDirectory, imageReader);
-                imageSaver.ImageFailed += ImageSaver_ImageFailed;
+            //    baseDirectory = $"{Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}/DCIM";
 
-                await InitializePreviewAsync(framerate, new Surface(preview.SurfaceTexture), imageReader.Surface);
+            //    imageSaver = new ImageSaver(baseDirectory, imageReader);
+            //    imageSaver.ImageFailed += ImageSaver_ImageFailed;
 
-                isCancelled = false;
+            //    await InitializePreviewAsync(framerate, new Surface(preview.SurfaceTexture), imageReader.Surface);
 
-                StartContinuous();
-                return;
-            }
+            //    isCancelled = false;
+
+            //    StartContinuous();
+            //    return;
+            //}
 
             //Take();
-            imageSaver.SaveImage();
-            Take();
+            //imageSaver.SaveImage();
+            // Take();
         }
 
-        private void ImageSaver_ImageFailed(object sender, EventArgs e)
-        {
-            isCancelled = true;
-        }
+        //private void ImageSaver_ImageFailed(object sender, EventArgs e)
+        //{
+        //    isCancelled = true;
+        //}
 
         private async Task InitializePreviewAsync(int fps, params Surface[] surfaces)
         {
@@ -267,15 +271,21 @@ namespace Android.ContinuousStills
             }
 
             await tcs.Task;
-            var builder = camera.CreateCaptureRequest(CameraTemplate.Preview);
+            var builder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
             Surface previewSurface = new Surface(preview.SurfaceTexture);
 
             builder.AddTarget(previewSurface);
+            builder.AddTarget(imageReader.Surface);
             builder.Set(CaptureRequest.ControlAeTargetFpsRange, new Android.Util.Range(fps, fps));
+            builder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
+            builder.Set(CaptureRequest.JpegQuality, (sbyte)90);
 
             var request = builder.Build();
 
-            captureSession.SetRepeatingRequest(request, new CaptureCallback(), null);
+            var callback = new CaptureCallback();
+            // callback.CaptureComplete += C_SequenceComplete;
+
+            captureSession.SetRepeatingRequest(request, callback, null);
         }
 
         private async void Picture_Click(object sender, EventArgs e)

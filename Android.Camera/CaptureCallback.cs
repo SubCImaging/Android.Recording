@@ -8,6 +8,8 @@ namespace Android.Camera
     {
         private DateTime lastFrame;
 
+        public event EventHandler CaptureComplete;
+
         public event EventHandler SequenceComplete;
 
         public override void OnCaptureBufferLost(CameraCaptureSession session, CaptureRequest request, Surface target, long frameNumber)
@@ -27,6 +29,8 @@ namespace Android.Camera
             lastFrame = DateTime.Now;
 
             base.OnCaptureCompleted(session, request, result);
+
+            CaptureComplete?.Invoke(this, EventArgs.Empty);
         }
 
         public override void OnCaptureFailed(CameraCaptureSession session, CaptureRequest request, CaptureFailure failure)
