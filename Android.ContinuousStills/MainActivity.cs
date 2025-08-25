@@ -1,24 +1,25 @@
 using Android.App;
+using Android.Camera;
+using Android.Content;
+using Android.Graphics;
+using Android.Hardware;
 using Android.Hardware.Camera2;
+using Android.Hardware.Camera2.Params;
+using Android.Media;
+using Android.Net.Wifi.Aware;
 using Android.OS;
 using Android.Runtime;
-using AndroidX.AppCompat.App;
-using System.Threading.Tasks;
-using System;
-using Android.Views;
-using System.Collections.Generic;
-using System.Text.RegularExpressions;
-using Android.Widget;
-using Android.Media;
-using Android.Content;
-using Java.IO;
-using Android.Hardware;
-using Android.Hardware.Camera2.Params;
-using Android.Graphics;
-using System.Linq;
-using Javax.Xml.Transform;
 using Android.Util;
-using Android.Camera;
+using Android.Views;
+using Android.Widget;
+using AndroidX.AppCompat.App;
+using Java.IO;
+using Javax.Xml.Transform;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace Android.ContinuousStills
 {
@@ -30,6 +31,7 @@ namespace Android.ContinuousStills
         private string baseDirectory;
         private CameraDevice camera;
         private CameraCaptureSession captureSession;
+        private int framerate = 10;
         private ImageReader imageReader;
         private ImageSaver imageSaver;
 
@@ -155,19 +157,33 @@ namespace Android.ContinuousStills
             }
 
             // get the camera from the camera manager with the given ID
-            camera = await OpenCameraAsync("1", cameraManager);
-            Characteristics = cameraManager.GetCameraCharacteristics("1");
+            camera = await OpenCameraAsync("0", cameraManager);
+            Characteristics = cameraManager.GetCameraCharacteristics("0");
+
+            var fpsRangesJava = (Java.Lang.Object[])Characteristics.Get(CameraCharacteristics.ControlAeAvailableTargetFpsRanges);
+
+            var availableFpsRanges = fpsRangesJava
+                .Cast<Android.Util.Range>()
+                .ToArray();
+
+            foreach (var item in availableFpsRanges)
+            {
+                System.Console.WriteLine($"{item.Lower} - {item.Upper}");
+            }
+
+            System.Console.WriteLine();
+
             StreamMap = (StreamConfigurationMap)Characteristics.Get(CameraCharacteristics.ScalerStreamConfigurationMap);
             jpegSizes = StreamMap.GetOutputSizes((int)ImageFormatType.Jpeg);
             imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
-            baseDirectory = $"{ Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}/DCIM";
+            baseDirectory = $"{Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}/DCIM";
 
             imageSaver = new ImageSaver(baseDirectory, imageReader);
             imageSaver.ImageFailed += ImageSaver_ImageFailed;
 
             // imageReader.SetOnImageAvailableListener(imageSaver, handler);
-            await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
+            await InitializePreviewAsync(framerate, new Surface(preview.SurfaceTexture), imageReader.Surface);
         }
 
         private async void C_SequenceComplete(object sender, EventArgs e)
@@ -191,12 +207,12 @@ namespace Android.ContinuousStills
 
                 imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
-                baseDirectory = $"{ Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}/DCIM";
+                baseDirectory = $"{Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}/DCIM";
 
                 imageSaver = new ImageSaver(baseDirectory, imageReader);
                 imageSaver.ImageFailed += ImageSaver_ImageFailed;
 
-                await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
+                await InitializePreviewAsync(framerate, new Surface(preview.SurfaceTexture), imageReader.Surface);
 
                 isCancelled = false;
 
@@ -214,7 +230,7 @@ namespace Android.ContinuousStills
             isCancelled = true;
         }
 
-        private async Task InitializePreviewAsync(params Surface[] surfaces)
+        private async Task InitializePreviewAsync(int fps, params Surface[] surfaces)
         {
             captureSession?.Close();
 
@@ -255,15 +271,15 @@ namespace Android.ContinuousStills
             Surface previewSurface = new Surface(preview.SurfaceTexture);
 
             builder.AddTarget(previewSurface);
+            builder.Set(CaptureRequest.ControlAeTargetFpsRange, new Android.Util.Range(fps, fps));
 
             var request = builder.Build();
 
-            captureSession.SetRepeatingRequest(request, null, null);
+            captureSession.SetRepeatingRequest(request, new CaptureCallback(), null);
         }
 
         private async void Picture_Click(object sender, EventArgs e)
         {
-
             if (picture.Text == "Start RDI")
             {
                 picture.Text = "Stop RDI";
@@ -272,7 +288,7 @@ namespace Android.ContinuousStills
             else
             {
                 picture.Text = "Start RDI";
-                await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
+                await InitializePreviewAsync(framerate, new Surface(preview.SurfaceTexture), imageReader.Surface);
             }
         }
 
