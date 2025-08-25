@@ -21,6 +21,6 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_vertical|center"
-                android:text="picture" />
+                android:text="Start RDI" />
         </FrameLayout>
 </RelativeLayout>

@@ -120,12 +120,14 @@ namespace Android.ContinuousStills
                 return;
             }
 
-            stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
+            stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.ZeroShutterLag);
             stillCaptureBuilder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
-            stillCaptureBuilder.Set(CaptureRequest.EdgeMode, (int)EdgeMode.Off);
-            stillCaptureBuilder.Set(CaptureRequest.NoiseReductionMode, (int)NoiseReductionMode.Off);
-            stillCaptureBuilder.Set(CaptureRequest.ColorCorrectionAberrationMode, (int)ColorCorrectionAberrationMode.Off);
-            stillCaptureBuilder.Set(CaptureRequest.ControlAfMode, (int)ControlAFMode.ContinuousPicture);
+            stillCaptureBuilder.Set(CaptureRequest.JpegQuality, (sbyte)40);
+
+            //stillCaptureBuilder.Set(CaptureRequest.EdgeMode, (int)EdgeMode.Off);
+            //stillCaptureBuilder.Set(CaptureRequest.NoiseReductionMode, (int)NoiseReductionMode.Off);
+            //stillCaptureBuilder.Set(CaptureRequest.ColorCorrectionAberrationMode, (int)ColorCorrectionAberrationMode.Off);
+            //stillCaptureBuilder.Set(CaptureRequest.ControlAfMode, (int)ControlAFMode.ContinuousPicture);
             stillCaptureBuilder.AddTarget(imageReader.Surface);
 
             request = stillCaptureBuilder.Build();
@@ -153,13 +155,13 @@ namespace Android.ContinuousStills
             }
 
             // get the camera from the camera manager with the given ID
-            camera = await OpenCameraAsync("0", cameraManager);
-            Characteristics = cameraManager.GetCameraCharacteristics("0");
+            camera = await OpenCameraAsync("1", cameraManager);
+            Characteristics = cameraManager.GetCameraCharacteristics("1");
             StreamMap = (StreamConfigurationMap)Characteristics.Get(CameraCharacteristics.ScalerStreamConfigurationMap);
             jpegSizes = StreamMap.GetOutputSizes((int)ImageFormatType.Jpeg);
             imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
-            baseDirectory = $"{ Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}";
+            baseDirectory = $"{ Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}/DCIM";
 
             imageSaver = new ImageSaver(baseDirectory, imageReader);
             imageSaver.ImageFailed += ImageSaver_ImageFailed;
@@ -189,7 +191,7 @@ namespace Android.ContinuousStills
 
                 imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
 
-                baseDirectory = $"{ Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}";
+                baseDirectory = $"{ Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}/DCIM";
 
                 imageSaver = new ImageSaver(baseDirectory, imageReader);
                 imageSaver.ImageFailed += ImageSaver_ImageFailed;
@@ -259,9 +261,19 @@ namespace Android.ContinuousStills
             captureSession.SetRepeatingRequest(request, null, null);
         }
 
-        private void Picture_Click(object sender, EventArgs e)
+        private async void Picture_Click(object sender, EventArgs e)
         {
-            StartContinuous();
+
+            if (picture.Text == "Start RDI")
+            {
+                picture.Text = "Stop RDI";
+                StartContinuous();
+            }
+            else
+            {
+                picture.Text = "Start RDI";
+                await InitializePreviewAsync(new Surface(preview.SurfaceTexture), imageReader.Surface);
+            }
         }
 
         private void Take()

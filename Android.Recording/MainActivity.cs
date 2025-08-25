@@ -1,19 +1,28 @@
 ﻿using Android.App;
-using Android.Hardware.Camera2;
-using Android.OS;
-using Android.Runtime;
-using AndroidX.AppCompat.App;
-using System.Threading.Tasks;
-using System;
-using Android.Views;
-using System.Collections.Generic;
-using System.Text.RegularExpressions;
-using Android.Widget;
-using Android.Media;
-using Android.Content;
-using Java.IO;
-using Android.Hardware;
 using Android.Camera;
+using Android.Content;
+using Android.Hardware;
+using Android.Hardware.Camera2;
+using Android.Media;
+using Android.OS;
+using Android.Provider;
+using Android.Runtime;
+using Android.Util;
+using Android.Views;
+using Android.Widget;
+using AndroidX.AppCompat.App;
+using AndroidX.Core.App;
+using Java.IO;
+using Java.Nio;
+using SubC.Rayfin.Helpers;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Security.Cryptography.X509Certificates;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using System.Timers;
 
 namespace Android.Recording
 {
@@ -29,6 +38,15 @@ namespace Android.Recording
         private Button record;
 
         private MediaRecorder recorder = new MediaRecorder();
+        private Timer recordingTimer;
+        private Shell shell;
+        private bool isRecording;
+        private int videosRecorded = 0;
+        private Stopwatch recorderTimer = new Stopwatch();
+        private FileInfo recordingLogger;
+        private string dir = $"sdcard/Android/data/com.companyname.android.recording/sdcard/DCIM";
+        //private string dir = "/mnt/user/0/emulated/";
+        private Stopwatch restartTimer = new Stopwatch();
 
         public static Task<CameraDevice> OpenCameraAsync(string cameraId, CameraManager cameraManager)
         {
@@ -80,9 +98,24 @@ namespace Android.Recording
 
             if (what == MediaRecorderInfo.MaxDurationReached)
             {
-                recorder.Stop();
+                videosRecorded += 1;
 
-                await StartRecordingAsync();
+                restartTimer.Start();
+                recorder.Stop();
+                Toast.MakeText(this, $"Videos Recorded: {videosRecorded}", ToastLength.Short).Show();
+
+                await StartRecordingAsync(this);
+                restartTimer.Stop();
+
+                var restartTime = restartTimer.Elapsed;
+                //Android.Util.Log.Debug("LogPath", $"{recordingLogger.FullName}");
+
+                restartTimer.Reset();
+
+                using (System.IO.StreamWriter writer = new System.IO.StreamWriter(recordingLogger.FullName, true))
+                {
+                    writer.WriteLine($"Restart Recording Time ==> {restartTime}");
+                }
             }
             if (what == MediaRecorderInfo.MaxFilesizeReached)
             {
@@ -104,18 +137,41 @@ namespace Android.Recording
             base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
         }
 
+
         protected override async void OnCreate(Bundle savedInstanceState)
         {
             base.OnCreate(savedInstanceState);
             Xamarin.Essentials.Platform.Init(this, savedInstanceState);
             // Set our view from the "main" layout resource
             SetContentView(Resource.Layout.activity_main);
+            ActivityCompat.RequestPermissions(this, new string[]
+            {
+                Manifest.Permission.ReadExternalStorage
+            }, 1001);
+
+            //Intent intent = new Intent(Settings.ActionManageAllFilesAccessPermission);
+            //intent.SetData(Android.Net.Uri.Parse("package:" + Application.Context.PackageName));
+            //StartActivity(intent);
+            //Intent intent = new Intent(Intent.ActionOpenDocument);
+            //intent.SetType("*video/*"); // Or "video/*", "image/*", etc.
+            //intent.AddCategory(Intent.CategoryOpenable);
+
+            //StartActivityForResult(intent, 1234);
+
+
 
             // set up the camera
             // get the preview to display video
             preview = FindViewById<AutoFitTextureView>(Resource.Id.Preview);
             record = FindViewById<Button>(Resource.Id.video);
+
+            recordingTimer = new Timer();
+            //var logDir = (string)Android.OS.Environment.DirectoryPictures;
+            shell = new Shell();
+            recordingLogger = new FileInfo($"{dir}/prepareLogs.log");
+
             record.Click += Record_Click;
+
             var cameraManager = (CameraManager)GetSystemService(CameraService);
 
             while (!preview.IsAvailable)
@@ -126,14 +182,20 @@ namespace Android.Recording
             // get the camera from the camera manager with the given ID
             camera = await OpenCameraAsync("0", cameraManager);
 
+            //await GetStoragePoint(shell);
+
             await RefreshSessionAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture));
         }
 
-        private File GetVideoFile()
+        private Java.IO.File GetVideoFile()
         {
+
+
+            var baseDirectory = $"mnt/expand/67331e5c-9099-4f57-8602-f8e17fddbe2e/DCIM";
+            shell.Execute($"mkdir -p \"{baseDirectory}\"");
+            shell.Execute($"chmod -R 777 \"{baseDirectory}\"");
             string fileName = "video-" + DateTime.Now.ToString("yyMMdd-hhmmss") + ".mp4"; //new filenamed based on date time
 
-            var dir = $"{Android.Camera.MainActivity.StorageLocation}/{Android.Camera.MainActivity.GetStoragePoint()}/Videos/";
             //string incindex = $"{dir}/vid{index}";
             //if (index >= max)
             //{
@@ -141,7 +203,7 @@ namespace Android.Recording
             //    ShellSync($"chmod -R 777 \"{dir}/vid{incindex}\"");
             //}
             //index++;
-            var file = new File(dir, fileName); // change "dir" into "incindex" to generate a folder each time
+            var file = new Java.IO.File(/*dir*/ baseDirectory, fileName); // change "dir" into "incindex" to generate a folder each time
 
             System.Diagnostics.Debug.WriteLine($"{file}");
             return file;
@@ -152,12 +214,15 @@ namespace Android.Recording
             if (record.Text == "record")
             {
                 record.Text = "stop";
-                await StartRecordingAsync();
+                await StartRecordingAsync(this);
+                //recordingTimer.Start();
             }
             else
             {
                 record.Text = "record";
+                //recordingTimer.Stop();
                 recorder.Stop();
+
                 await RefreshSessionAsync(CameraTemplate.Preview, new Surface(preview.SurfaceTexture));
             }
         }
@@ -166,18 +231,6 @@ namespace Android.Recording
         {
             System.Diagnostics.Debug.WriteLine("===> " + e.What);
         }
-
-        //private async void Recorder_Info(object sender, MediaRecorder.InfoEventArgs e)
-        //{
-        //    System.Diagnostics.Debug.WriteLine("Warning: " + e.What);
-
-        //    if (e.What == MediaRecorderInfo.MaxDurationReached)
-        //    {
-        //        recorder.Stop();
-
-        //        await StartRecordingAsync();
-        //    }
-        //}
 
         private async Task RefreshSessionAsync(CameraTemplate template, params Surface[] surfaces)
         {
@@ -227,14 +280,59 @@ namespace Android.Recording
             captureSession.SetRepeatingRequest(request, null, null);
         }
 
-        private async Task StartRecordingAsync()
+        /// <summary>
+        /// Gets the <see cref="Guid" /> that represents the SD card in the Rayfin.
+        /// </summary>
+        /// <returns>The <see cref="Guid" /> that represents the SD card in the Rayfin.</returns>
+        private static async Task<Guid> GetStoragePoint(Shell shell)
+        {
+            var retries = 0;
+            while (retries < 3)
+            {
+                var folders = shell.Execute($@"ls /mnt/expand").Split('\n');
+
+                foreach (string folder in folders)
+                {
+                    if (Guid.TryParse(folder, out Guid result))
+                    {
+                        return result;
+                    }
+                }
+
+                retries++;
+                await Task.Delay(2000);
+            }
+
+            throw new System.IO.IOException("Could not find storage mount");
+        }
+
+        //public Android.Net.Uri CreateMediaOutputUri(Context context)
+        //{
+        //    var values = new ContentValues();
+        //    values.Put(MediaStore.MediaColumns.DisplayName, "recording_" + Guid.NewGuid() + ".mp4");
+        //    values.Put(MediaStore.MediaColumns.MimeType, "video/mp4");
+        //    values.Put(MediaStore.MediaColumns.RelativePath, "Movies/MyApp"); // Automatically goes to SD card if mounted and used
+
+        //    var externalUri = MediaStore.Video.Media.ExternalContentUri;
+
+        //    var resolver = context.ContentResolver;
+        //    return resolver.Insert(externalUri, values); // This is the URI to give to MediaRecorder
+        //}
+
+
+        private async Task StartRecordingAsync(Context context)
         {
             //captureSession.Close();
-
+            isRecording = true;
             recorder.SetVideoSource(VideoSource.Surface);
             recorder.SetOutputFormat(OutputFormat.Mpeg4);
 
+            //var uri = CreateMediaOutputUri(context);
+
+            //var fileDescriptor = context.ContentResolver.OpenFileDescriptor(uri, "w").FileDescriptor;
+
             // get the file
+            //var storagePoint = await GetStoragePoint(shell);
             var file = GetVideoFile().AbsoluteFile;
 
             var dir = file.Parent;
@@ -244,17 +342,33 @@ namespace Android.Recording
                 System.IO.Directory.CreateDirectory(dir);
             }
 
-            System.Diagnostics.Debug.WriteLine($"Error: Starting to record : " + file.Path);
+            System.Diagnostics.Debug.WriteLine($"Error: Starting to record : " + file.Path /*fileDescriptor*/);
 
-            recorder.SetOutputFile(file.Path);
+            recorder.SetOutputFile(file.Path /*fileDescriptor*/);
             recorder.SetMaxDuration((int)TimeSpan.FromMinutes(10).TotalMilliseconds);
             recorder.SetOnInfoListener(this);
-            recorder.SetVideoEncodingBitRate(100_000_000);
+            recorder.SetVideoEncodingBitRate(25_000_000);
             recorder.SetVideoFrameRate(30);
             recorder.SetVideoSize(3840, 2160);
             recorder.SetMaxFileSize(21_474_836_480);
             recorder.SetVideoEncoder(VideoEncoder.H264);
+
+
+            recorderTimer.Start();
             recorder.Prepare();
+            recorderTimer.Stop();
+            var prepareTime = recorderTimer.Elapsed;
+            //Android.Util.Log.Debug("LogPath", $"{recordingLogger.FullName}");
+
+            recorderTimer.Reset();
+            //using (var fileStream = new FileStream(recordingLogger.AbsolutePath, FileMode.Create, FileAccess.Write))
+            //{
+            //    fileStream.Write($"Preparing Time ==> {prepareTime}");
+            //}
+            //using (System.IO.StreamWriter writer = new System.IO.StreamWriter(recordingLogger.FullName, true))
+            //{
+            //    writer.WriteLine($"Preparing Time ==> {prepareTime}");
+            //}
 
             await RefreshSessionAsync(CameraTemplate.Record, new Surface(preview.SurfaceTexture), recorder.Surface);
 

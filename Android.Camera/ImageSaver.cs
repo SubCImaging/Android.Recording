@@ -88,6 +88,9 @@ namespace Android.Camera
             if (!System.IO.Directory.Exists(dir))
             {
                 System.IO.Directory.CreateDirectory(dir);
+
+                Camera.MainActivity.ShellSync($"mkdir -p \"{dir}\"");
+                Camera.MainActivity.ShellSync($"chmod -R 777 \"{dir}\"");
             }
 
             System.Diagnostics.Debug.WriteLine($"Information: Starting to capture {index}: " + file.Path);

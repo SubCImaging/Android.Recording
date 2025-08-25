@@ -82,13 +82,17 @@ namespace Android.ContinuousStills
 
             Android.Util.Log.Info("SubC", "Image listener ... Image acquired");
 
-            //var file = GetStillFile();
-            //var dir = file.Parent;
+            var file = GetStillFile();
+            var dir = file.Parent;
 
-            //if (!System.IO.Directory.Exists(dir))
-            //{
-            //    System.IO.Directory.CreateDirectory(dir);
-            //}
+            if (!System.IO.Directory.Exists(dir))
+            {
+                System.IO.Directory.CreateDirectory(dir);
+
+                Camera.MainActivity.ShellSync($"mkdir -p \"{dir}\"");
+            }
+
+            Camera.MainActivity.ShellSync($"chmod -R 777 \"{dir}\"");
 
             ////            System.Diagnostics.Debug.WriteLine($"Information: Starting to capture {index}: " + file.Path);
             //Android.Util.Log.Info("SubC", $"Information: Starting to capture { index}: " + file.Path);
@@ -118,9 +122,9 @@ namespace Android.ContinuousStills
         {
             string fileName = "still-" + DateTime.Now.ToString("yyMMdd-hhmmss.fff") + ".jpg"; //new filenamed based on date time
 
-            var dir = $"{baseDirectory}/Stills/";
+            var dir = $"{baseDirectory}/Stills";
 
-            string path = $"{dir}/pic{folderIndex}";
+            string path = $"{dir}/again-{folderIndex}";
 
             if (index >= max)
             {
