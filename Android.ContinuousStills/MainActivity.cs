@@ -1,3 +1,4 @@
+using Android.Annotation;
 using Android.App;
 using Android.Camera;
 using Android.Content;
@@ -5,6 +6,7 @@ using Android.Graphics;
 using Android.Hardware;
 using Android.Hardware.Camera2;
 using Android.Hardware.Camera2.Params;
+using Android.Hardware.Usb;
 using Android.Media;
 using Android.Net.Wifi.Aware;
 using Android.OS;
@@ -35,13 +37,18 @@ namespace Android.ContinuousStills
         private ImageReader imageReader;
         private ImageSaver imageSaver;
 
+        private bool isRDIing = false;
+
         //private bool isCancelled;
         private Size[] jpegSizes;
 
         private Button picture;
         private AutoFitTextureView preview;
+        private bool rdiOnStart = false;
         private CaptureRequest request;
         private CaptureRequest.Builder stillCaptureBuilder;
+
+        private Handler stillHandler;
 
         /// <summary>
         /// Gets all characteristics of the camera system.
@@ -82,6 +89,7 @@ namespace Android.ContinuousStills
             stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.ZeroShutterLag);
             stillCaptureBuilder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
             stillCaptureBuilder.Set(CaptureRequest.JpegQuality, (sbyte)90);
+            stillCaptureBuilder.Set(CaptureRequest.FlashMode, (int)FlashMode.Single);
 
             //stillCaptureBuilder.Set(CaptureRequest.EdgeMode, (int)EdgeMode.Off);
             //stillCaptureBuilder.Set(CaptureRequest.NoiseReductionMode, (int)NoiseReductionMode.Off);
@@ -90,6 +98,8 @@ namespace Android.ContinuousStills
             stillCaptureBuilder.AddTarget(imageReader.Surface);
 
             request = stillCaptureBuilder.Build();
+
+            isRDIing = true;
 
             Take();
         }
@@ -106,6 +116,15 @@ namespace Android.ContinuousStills
             picture = FindViewById<Button>(Resource.Id.picture);
             picture.Click += Picture_Click;
 
+            // set up the serial communicator
+            //var serial = new AndroidSerial(this, GetSystemService(UsbService) as UsbManager)
+            //{
+            //    Append = "\n",
+            //};
+
+            //await serial.SendAsync($"~aux0 set device:4"); // Device 4 for Aquorea LED.
+            //await serial.SendAsync($"~aux0 set driverbaud:115200");
+
             var cameraManager = (CameraManager)GetSystemService(CameraService);
 
             while (!preview.IsAvailable)
@@ -113,9 +132,14 @@ namespace Android.ContinuousStills
                 await Task.Delay(TimeSpan.FromMilliseconds(100));
             }
 
+            var cameras = cameraManager.GetCameraIdList();
+
+            // select the second camera if it exists because of the dev kit
+            var cameraId = cameras.Length > 1 ? cameras[1] : cameras[0];
+
             // get the camera from the camera manager with the given ID
-            camera = await CameraHelpers.OpenCameraAsync("0", cameraManager);
-            Characteristics = cameraManager.GetCameraCharacteristics("0");
+            camera = await CameraHelpers.OpenCameraAsync(cameraId, cameraManager);
+            Characteristics = cameraManager.GetCameraCharacteristics(cameraId);
 
             var fpsRangesJava = (Java.Lang.Object[])Characteristics.Get(CameraCharacteristics.ControlAeAvailableTargetFpsRanges);
 
@@ -125,27 +149,45 @@ namespace Android.ContinuousStills
 
             foreach (var item in availableFpsRanges)
             {
-                System.Console.WriteLine($"{item.Lower} - {item.Upper}");
+                System.Console.WriteLine($"Warning: {item.Lower} - {item.Upper}");
             }
 
             System.Console.WriteLine();
 
             StreamMap = (StreamConfigurationMap)Characteristics.Get(CameraCharacteristics.ScalerStreamConfigurationMap);
             jpegSizes = StreamMap.GetOutputSizes((int)ImageFormatType.Jpeg);
-            imageReader = ImageReader.NewInstance(jpegSizes[0].Width, jpegSizes[0].Height, ImageFormatType.Jpeg, 20);
+
+            foreach (var size in jpegSizes)
+            {
+                System.Console.WriteLine($"Warning Size: {size.Width}x{size.Height}");
+            }
+
+            // var jpegSize = jpegSizes.FirstOrDefault(s => s.Width == 1920 && s.Height == 1080) ?? jpegSizes[0];
+            var jpegSize = jpegSizes[0];
+
+            imageReader = ImageReader.NewInstance(jpegSize.Width, jpegSize.Height, ImageFormatType.Jpeg, 20);
 
             baseDirectory = $"{Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}/DCIM";
 
             imageSaver = new ImageSaver(baseDirectory);//, imageReader);
             // imageSaver.ImageFailed += ImageSaver_ImageFailed;
 
-            imageReader.SetOnImageAvailableListener(imageSaver, handler);
+            var stillThread = new HandlerThread("StillThread");
+            stillThread.Start();
+            stillHandler = new Android.OS.Handler(stillThread.Looper);
+
+            imageReader.SetOnImageAvailableListener(imageSaver, stillHandler);
 
             await InitializePreviewAsync(framerate, new Surface(preview.SurfaceTexture), imageReader.Surface);
         }
 
         private async void C_SequenceComplete(object sender, EventArgs e)
         {
+            if (!isRDIing)
+            {
+                return;
+            }
+
             var freeExternalStorage = GetDiskSpaceRemaining();
 
             if (freeExternalStorage < 18759680)
@@ -180,7 +222,7 @@ namespace Android.ContinuousStills
             //    return;
             //}
 
-            //Take();
+            Take();
             //imageSaver.SaveImage();
             // Take();
         }
@@ -227,19 +269,39 @@ namespace Android.ContinuousStills
             }
 
             await tcs.Task;
-            var builder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
+
+            CaptureRequest.Builder builder;
+
+            if (rdiOnStart)
+            {
+                builder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
+
+                builder.AddTarget(imageReader.Surface);
+                builder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
+                builder.Set(CaptureRequest.JpegQuality, (sbyte)90);
+                builder.Set(CaptureRequest.FlashMode, (int)FlashMode.Single);
+            }
+            else
+            {
+                builder = camera.CreateCaptureRequest(CameraTemplate.Preview);
+            }
+
+            long frameDurationNs = 1_000_000_000L / framerate;
+
             Surface previewSurface = new Surface(preview.SurfaceTexture);
 
             builder.AddTarget(previewSurface);
-            builder.AddTarget(imageReader.Surface);
             builder.Set(CaptureRequest.ControlAeTargetFpsRange, new Android.Util.Range(fps, fps));
-            builder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
-            builder.Set(CaptureRequest.JpegQuality, (sbyte)90);
+            //builder.Set(CaptureRequest.ControlMode, (int)ControlMode.Off);
+            //builder.Set(CaptureRequest.ControlAeMode, (int)ControlAEMode.Off);
+            //builder.Set(CaptureRequest.SensorSensitivity, 400);
+            ////builder.Set(CaptureRequest.SensorExposureTime, (long)16666667);
+            //builder.Set(CaptureRequest.SensorExposureTime, (long)33_333_333);
+            //builder.Set(CaptureRequest.SensorFrameDuration, frameDurationNs);
 
             var request = builder.Build();
 
             var callback = new CaptureCallback();
-            // callback.CaptureComplete += C_SequenceComplete;
 
             captureSession.SetRepeatingRequest(request, callback, null);
         }
@@ -253,8 +315,10 @@ namespace Android.ContinuousStills
             }
             else
             {
+                isRDIing = false;
+
                 picture.Text = "Start RDI";
-                await InitializePreviewAsync(framerate, new Surface(preview.SurfaceTexture), imageReader.Surface);
+                // await InitializePreviewAsync(framerate, new Surface(preview.SurfaceTexture), imageReader.Surface);
             }
         }
 
@@ -263,7 +327,7 @@ namespace Android.ContinuousStills
             var c = new CaptureCallback();
             c.SequenceComplete += C_SequenceComplete;
 
-            captureSession.Capture(request, c, handler);
+            captureSession.Capture(request, c, stillHandler);
         }
     }
 }
