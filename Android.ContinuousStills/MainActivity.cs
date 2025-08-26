@@ -367,6 +367,7 @@ namespace Android.ContinuousStills
             
 
             builder.AddTarget(previewSurface);
+            builder.AddTarget(capturer.Surface);
             // builder.Set(CaptureRequest.ControlAeTargetFpsRange, new Android.Util.Range(fps, fps));
             builder.Set(CaptureRequest.ControlMode, (int)ControlMode.Off);
             builder.Set(CaptureRequest.ControlAeMode, (int)ControlAEMode.Off);
