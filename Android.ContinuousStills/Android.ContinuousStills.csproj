@@ -117,6 +117,10 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\SubC.Rayfin.Micro\SubC.Android.RTSP\SubC.Android.RTSP.csproj">
+      <Project>{36CE240A-2322-4571-9A0D-51049F4F9748}</Project>
+      <Name>SubC.Android.RTSP</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Android.Camera\Android.Camera.csproj">
       <Project>{60fa4c54-abb1-43e9-a148-939ca1850bf7}</Project>
       <Name>Android.Camera</Name>

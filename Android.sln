@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Android.ContinuousStills", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Android.Camera", "Android.Camera\Android.Camera.csproj", "{60FA4C54-ABB1-43E9-A148-939CA1850BF7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SubC.Android.RTSP", "..\SubC.Rayfin.Micro\SubC.Android.RTSP\SubC.Android.RTSP.csproj", "{36CE240A-2322-4571-9A0D-51049F4F9748}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{60FA4C54-ABB1-43E9-A148-939CA1850BF7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{60FA4C54-ABB1-43E9-A148-939CA1850BF7}.Release|Any CPU.Build.0 = Release|Any CPU
 		{60FA4C54-ABB1-43E9-A148-939CA1850BF7}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{36CE240A-2322-4571-9A0D-51049F4F9748}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{36CE240A-2322-4571-9A0D-51049F4F9748}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{36CE240A-2322-4571-9A0D-51049F4F9748}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{36CE240A-2322-4571-9A0D-51049F4F9748}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -22,6 +22,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Veg.Mediacapture.Sdk;
+using static Veg.Mediacapture.Sdk.MediaCaptureConfig;
 
 namespace Android.ContinuousStills
 {
@@ -41,6 +43,7 @@ namespace Android.ContinuousStills
 
         //private bool isCancelled;
         private Size[] jpegSizes;
+        private MediaCapture capturer;
 
         private Button picture;
         private AutoFitTextureView preview;
@@ -185,8 +188,39 @@ namespace Android.ContinuousStills
             stillHandler = new Android.OS.Handler(stillThread.Looper);
 
             imageReader.SetOnImageAvailableListener(imageSaver, stillHandler);
+            var mConfig = capturer.Config;
+            mConfig.CaptureSource = CaptureSources.PpModeExternal.Val();
+            MediaCapture.RequestPermission(this, mConfig.CaptureSource);
 
-            await InitializePreviewAsync(framerate, new Surface(preview.SurfaceTexture), imageReader.Surface);
+            // configure RTSP
+            mConfig.SetVideoTimestampType(VideoTimestampType.SourceNtp);
+
+            mConfig.Streaming = true;
+            mConfig.PreviewScaleType = 0;
+            mConfig.Transcoding = true;
+            mConfig.CaptureMode = CaptureModes.PpModeVideo.Val();
+            mConfig.StreamType = StreamerTypes.StreamTypeRtspServer.Val();
+            mConfig.Url = "rtsp://@:" + 5540;
+            mConfig.VideoResolution = MediaCaptureConfig.CaptureVideoResolution.VR1920x1080;
+            mConfig.CaptureSource = CaptureSources.PpModeExternal.Val();
+            mConfig.VideoOrientation = McOrientationLandscape;
+            mConfig.VideoBitrate = 10000;
+            mConfig.VideoKeyFrameInterval = 1;
+            mConfig.VideoFramerate = 30;
+
+            mConfig.SetVideoTimestampType(VideoTimestampType.SourceNtp);
+
+            mConfig.VideoBitrateMode = MediaCaptureConfig.BitrateModeVbr;
+            mConfig.VideoAVCProfile = MediaCaptureConfig.AVCProfileMain;
+            mConfig.VideoFormat = MediaCaptureConfig.TypeVideoAvc;
+            mConfig.VideoMaxLatency = 100;
+
+            // start streaming
+            capturer.Open(mConfig, null);
+            capturer.StartStreaming();
+
+
+            await InitializePreviewAsync(framerate, new Surface(preview.SurfaceTexture), imageReader.Surface, capturer.Surface);
         }
 
         private void C_CaptureComplete(object sender, TotalCaptureResult e)
@@ -327,6 +361,8 @@ namespace Android.ContinuousStills
             long frameDurationNs = 1_000_000_000L / framerate;
 
             var previewSurface = new Surface(preview.SurfaceTexture);
+
+            
 
             builder.AddTarget(previewSurface);
             // builder.Set(CaptureRequest.ControlAeTargetFpsRange, new Android.Util.Range(fps, fps));
