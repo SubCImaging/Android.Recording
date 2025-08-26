@@ -47,7 +47,7 @@ namespace Android.ContinuousStills
 
         private Button picture;
         private AutoFitTextureView preview;
-        private bool rdiOnStart = false;
+        private bool rdiOnStart = true;
         private CaptureRequest request;
         private CaptureRequest.Builder stillCaptureBuilder;
 
@@ -91,16 +91,16 @@ namespace Android.ContinuousStills
 
             long frameDurationNs = 1_000_000_000L / framerate;
 
-            stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
+            stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.ZeroShutterLag);
             //stillCaptureBuilder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
             stillCaptureBuilder.Set(CaptureRequest.JpegQuality, (sbyte)90);
             stillCaptureBuilder.Set(CaptureRequest.FlashMode, (int)FlashMode.Single);
-            //stillCaptureBuilder.Set(CaptureRequest.ControlMode, (int)ControlMode.Off);
+            stillCaptureBuilder.Set(CaptureRequest.ControlMode, (int)ControlMode.Off);
             stillCaptureBuilder.Set(CaptureRequest.ControlAeMode, (int)ControlAEMode.OnAlwaysFlash);
-            //stillCaptureBuilder.Set(CaptureRequest.SensorSensitivity, 400);
-            //builder.Set(CaptureRequest.SensorExposureTime, (long)16666667);
-            //stillCaptureBuilder.Set(CaptureRequest.SensorExposureTime, (long)33_333_333);
-            //stillCaptureBuilder.Set(CaptureRequest.SensorFrameDuration, frameDurationNs);
+            stillCaptureBuilder.Set(CaptureRequest.SensorSensitivity, 400);
+
+            stillCaptureBuilder.Set(CaptureRequest.SensorExposureTime, (long)8_333_333);
+            stillCaptureBuilder.Set(CaptureRequest.SensorFrameDuration, frameDurationNs);
 
             //stillCaptureBuilder.Set(CaptureRequest.EdgeMode, (int)EdgeMode.Off);
             //stillCaptureBuilder.Set(CaptureRequest.NoiseReductionMode, (int)NoiseReductionMode.Off);
@@ -346,12 +346,12 @@ namespace Android.ContinuousStills
 
             if (rdiOnStart)
             {
-                builder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
+                builder = camera.CreateCaptureRequest(CameraTemplate.ZeroShutterLag);
 
                 builder.AddTarget(imageReader.Surface);
 
                 // builder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
-                builder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.StillCapture);
+                builder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
                 builder.Set(CaptureRequest.JpegQuality, (sbyte)90);
                 builder.Set(CaptureRequest.FlashMode, (int)FlashMode.Single);
             }
@@ -390,6 +390,11 @@ namespace Android.ContinuousStills
 
         private async void Picture_Click(object sender, EventArgs e)
         {
+            if (rdiOnStart)
+            {
+                return;
+            }
+
             if (picture.Text == "Start RDI")
             {
                 picture.Text = "Stop RDI";

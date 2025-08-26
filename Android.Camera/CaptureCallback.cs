@@ -27,7 +27,7 @@ namespace Android.Camera
             // System.Diagnostics.Debug.WriteLine($"Capture Completed");
             //Android.Util.Log.Info("SubC", "Capture Completed");
 
-            Android.Util.Log.Info("SubC", $"Time since last frame: {(DateTime.Now - lastFrame).TotalMilliseconds}");
+            // Android.Util.Log.Info("SubC", $"Time since last frame: {(DateTime.Now - lastFrame).TotalMilliseconds}");
 
             Android.Util.Log.Info("SubC", $"+-+> FPS: {fpsAvg.Add(1000 / (float)(DateTime.Now - lastFrame).TotalMilliseconds)}");
 
