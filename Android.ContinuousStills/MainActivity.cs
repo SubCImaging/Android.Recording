@@ -188,6 +188,8 @@ namespace Android.ContinuousStills
             stillHandler = new Android.OS.Handler(stillThread.Looper);
 
             imageReader.SetOnImageAvailableListener(imageSaver, stillHandler);
+
+            capturer = new MediaCapture(this, null);
             var mConfig = capturer.Config;
             mConfig.CaptureSource = CaptureSources.PpModeExternal.Val();
             MediaCapture.RequestPermission(this, mConfig.CaptureSource);
