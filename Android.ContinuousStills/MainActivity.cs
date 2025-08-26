@@ -44,7 +44,7 @@ namespace Android.ContinuousStills
 
         private Button picture;
         private AutoFitTextureView preview;
-        private bool rdiOnStart = true;
+        private bool rdiOnStart = false;
         private CaptureRequest request;
         private CaptureRequest.Builder stillCaptureBuilder;
 
@@ -310,12 +310,12 @@ namespace Android.ContinuousStills
 
             if (rdiOnStart)
             {
-                builder = camera.CreateCaptureRequest(CameraTemplate.ZeroShutterLag);
+                builder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
 
                 builder.AddTarget(imageReader.Surface);
 
                 // builder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
-                builder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
+                builder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.StillCapture);
                 builder.Set(CaptureRequest.JpegQuality, (sbyte)90);
                 builder.Set(CaptureRequest.FlashMode, (int)FlashMode.Single);
             }
