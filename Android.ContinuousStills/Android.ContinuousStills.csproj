@@ -67,7 +67,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AndroidSerial.cs" />
-    <Compile Include="CameraHelpers.cs" />
     <Compile Include="ImageSaver.cs" />
     <Compile Include="MainActivity.cs" />
     <Compile Include="QueueSave.cs" />

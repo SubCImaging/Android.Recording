@@ -2,6 +2,7 @@
 using Android.Hardware.Camera2;
 using Android.OS;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Android.ContinuousStills
@@ -50,6 +51,29 @@ namespace Android.ContinuousStills
             stateCallback.Opened -= handler;
 
             return c;
+        }
+
+        public class RunningAverage
+        {
+            private readonly int _size;
+            private readonly Queue<double> _window = new Queue<double>();
+            private double _sum;
+
+            public RunningAverage(int size)
+            {
+                _size = size;
+            }
+
+            public double Add(double value)
+            {
+                _window.Enqueue(value);
+                _sum += value;
+
+                if (_window.Count > _size)
+                    _sum -= _window.Dequeue();
+
+                return Math.Round(_sum / _window.Count, 1);
+            }
         }
     }
 }

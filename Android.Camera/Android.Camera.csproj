@@ -67,6 +67,7 @@
   <ItemGroup>
     <Compile Include="AutoFitTextureView.cs" />
     <Compile Include="CameraErrorArgs.cs" />
+    <Compile Include="CameraHelpers.cs" />
     <Compile Include="CameraSessionCallback.cs" />
     <Compile Include="CameraStateCallback.cs" />
     <Compile Include="CaptureCallback.cs" />

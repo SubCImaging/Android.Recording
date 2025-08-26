@@ -1,14 +1,17 @@
 ﻿using Android.Hardware.Camera2;
 using Android.Views;
 using System;
+using System.Collections.Generic;
+using static Android.ContinuousStills.CameraHelpers;
 
 namespace Android.Camera
 {
     public class CaptureCallback : CameraCaptureSession.CaptureCallback
     {
+        private RunningAverage fpsAvg = new RunningAverage(10);
         private DateTime lastFrame;
 
-        public event EventHandler CaptureComplete;
+        public event EventHandler<TotalCaptureResult> CaptureComplete;
 
         public event EventHandler SequenceComplete;
 
@@ -26,11 +29,13 @@ namespace Android.Camera
 
             Android.Util.Log.Info("SubC", $"Time since last frame: {(DateTime.Now - lastFrame).TotalMilliseconds}");
 
+            Android.Util.Log.Info("SubC", $"+-+> FPS: {fpsAvg.Add(1000 / (float)(DateTime.Now - lastFrame).TotalMilliseconds)}");
+
             lastFrame = DateTime.Now;
 
             base.OnCaptureCompleted(session, request, result);
 
-            CaptureComplete?.Invoke(this, EventArgs.Empty);
+            CaptureComplete?.Invoke(this, result);
         }
 
         public override void OnCaptureFailed(CameraCaptureSession session, CaptureRequest request, CaptureFailure failure)

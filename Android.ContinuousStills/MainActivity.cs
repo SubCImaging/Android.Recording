@@ -1,4 +1,4 @@
-using Android.Annotation;
+﻿using Android.Annotation;
 using Android.App;
 using Android.Camera;
 using Android.Content;
@@ -44,7 +44,7 @@ namespace Android.ContinuousStills
 
         private Button picture;
         private AutoFitTextureView preview;
-        private bool rdiOnStart = false;
+        private bool rdiOnStart = true;
         private CaptureRequest request;
         private CaptureRequest.Builder stillCaptureBuilder;
 
@@ -86,10 +86,18 @@ namespace Android.ContinuousStills
                 return;
             }
 
-            stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.ZeroShutterLag);
-            stillCaptureBuilder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
+            long frameDurationNs = 1_000_000_000L / framerate;
+
+            stillCaptureBuilder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
+            //stillCaptureBuilder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
             stillCaptureBuilder.Set(CaptureRequest.JpegQuality, (sbyte)90);
             stillCaptureBuilder.Set(CaptureRequest.FlashMode, (int)FlashMode.Single);
+            //stillCaptureBuilder.Set(CaptureRequest.ControlMode, (int)ControlMode.Off);
+            stillCaptureBuilder.Set(CaptureRequest.ControlAeMode, (int)ControlAEMode.OnAlwaysFlash);
+            //stillCaptureBuilder.Set(CaptureRequest.SensorSensitivity, 400);
+            //builder.Set(CaptureRequest.SensorExposureTime, (long)16666667);
+            //stillCaptureBuilder.Set(CaptureRequest.SensorExposureTime, (long)33_333_333);
+            //stillCaptureBuilder.Set(CaptureRequest.SensorFrameDuration, frameDurationNs);
 
             //stillCaptureBuilder.Set(CaptureRequest.EdgeMode, (int)EdgeMode.Off);
             //stillCaptureBuilder.Set(CaptureRequest.NoiseReductionMode, (int)NoiseReductionMode.Off);
@@ -181,6 +189,32 @@ namespace Android.ContinuousStills
             await InitializePreviewAsync(framerate, new Surface(preview.SurfaceTexture), imageReader.Surface);
         }
 
+        private void C_CaptureComplete(object sender, TotalCaptureResult e)
+        {
+            var flashState = (int)e.Get(CaptureResult.FlashState);
+            if (flashState != null)
+            {
+                switch (flashState)
+                {
+                    case (int)FlashState.Ready:
+                        System.Diagnostics.Debug.WriteLine("Flash is READY");
+                        break;
+
+                    case (int)FlashState.Charging:
+                        System.Diagnostics.Debug.WriteLine("Flash is CHARGING");
+                        break;
+
+                    case (int)FlashState.Fired:
+                        System.Diagnostics.Debug.WriteLine("Flash just FIRED");
+                        break;
+
+                    default:
+                        System.Diagnostics.Debug.WriteLine($"Flash state: {flashState}");
+                        break;
+                }
+            }
+        }
+
         private async void C_SequenceComplete(object sender, EventArgs e)
         {
             if (!isRDIing)
@@ -221,6 +255,8 @@ namespace Android.ContinuousStills
             //    StartContinuous();
             //    return;
             //}
+
+            // await Task.Delay(100);
 
             Take();
             //imageSaver.SaveImage();
@@ -274,9 +310,11 @@ namespace Android.ContinuousStills
 
             if (rdiOnStart)
             {
-                builder = camera.CreateCaptureRequest(CameraTemplate.StillCapture);
+                builder = camera.CreateCaptureRequest(CameraTemplate.ZeroShutterLag);
 
                 builder.AddTarget(imageReader.Surface);
+
+                // builder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
                 builder.Set(CaptureRequest.ControlCaptureIntent, (int)ControlCaptureIntent.ZeroShutterLag);
                 builder.Set(CaptureRequest.JpegQuality, (sbyte)90);
                 builder.Set(CaptureRequest.FlashMode, (int)FlashMode.Single);
@@ -288,22 +326,27 @@ namespace Android.ContinuousStills
 
             long frameDurationNs = 1_000_000_000L / framerate;
 
-            Surface previewSurface = new Surface(preview.SurfaceTexture);
+            var previewSurface = new Surface(preview.SurfaceTexture);
 
             builder.AddTarget(previewSurface);
-            builder.Set(CaptureRequest.ControlAeTargetFpsRange, new Android.Util.Range(fps, fps));
-            //builder.Set(CaptureRequest.ControlMode, (int)ControlMode.Off);
-            //builder.Set(CaptureRequest.ControlAeMode, (int)ControlAEMode.Off);
-            //builder.Set(CaptureRequest.SensorSensitivity, 400);
-            ////builder.Set(CaptureRequest.SensorExposureTime, (long)16666667);
-            //builder.Set(CaptureRequest.SensorExposureTime, (long)33_333_333);
-            //builder.Set(CaptureRequest.SensorFrameDuration, frameDurationNs);
+            // builder.Set(CaptureRequest.ControlAeTargetFpsRange, new Android.Util.Range(fps, fps));
+            builder.Set(CaptureRequest.ControlMode, (int)ControlMode.Off);
+            builder.Set(CaptureRequest.ControlAeMode, (int)ControlAEMode.Off);
+            builder.Set(CaptureRequest.SensorSensitivity, 400);
+            builder.Set(CaptureRequest.SensorExposureTime, (long)8_333_333);
+            // builder.Set(CaptureRequest.SensorExposureTime, (long)16_666_667);
+            // builder.Set(CaptureRequest.SensorExposureTime, (long)33_333_333);
+            builder.Set(CaptureRequest.SensorFrameDuration, frameDurationNs);
 
             var request = builder.Build();
 
             var callback = new CaptureCallback();
 
-            captureSession.SetRepeatingRequest(request, callback, null);
+            var sessionThread = new HandlerThread("SessionThread");
+            sessionThread.Start();
+            var sessionHandler = new Handler(sessionThread.Looper);
+
+            captureSession.SetRepeatingRequest(request, callback, sessionHandler);
         }
 
         private async void Picture_Click(object sender, EventArgs e)
@@ -326,6 +369,7 @@ namespace Android.ContinuousStills
         {
             var c = new CaptureCallback();
             c.SequenceComplete += C_SequenceComplete;
+            c.CaptureComplete += C_CaptureComplete;
 
             captureSession.Capture(request, c, stillHandler);
         }

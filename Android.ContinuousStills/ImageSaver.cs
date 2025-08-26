@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
+using static Android.ContinuousStills.CameraHelpers;
 using static Android.Media.ImageReader;
 
 namespace Android.ContinuousStills
@@ -18,22 +19,24 @@ namespace Android.ContinuousStills
     {
         private readonly string baseDirectory;
 
+        private readonly QueueSave handler;
+
         //private readonly ImageReader reader;
         private int failed;
 
         private int folderIndex = 0;
-
-        private QueueSave handler;
         private int index = 0;
 
         private bool isSaving = false;
         private int max = 1000;
         private ConcurrentQueue<(Image, File)> queue = new ConcurrentQueue<(Image, File)>();
 
-        public ImageSaver(string baseDirectory)//, ImageReader reader)
+        private RunningAverage runningAverage = new RunningAverage(10);
+        private DateTime timeSinceLastSave = DateTime.Now;
+
+        public ImageSaver(string baseDirectory)
         {
             this.baseDirectory = baseDirectory;
-            //this.reader = reader;
 
             handler = new QueueSave("QueueSave", queue);
         }
@@ -44,6 +47,7 @@ namespace Android.ContinuousStills
         {
             if (isSaving)
             {
+                Android.Util.Log.Info("SubC", "Error: Already saving");
                 return;
             }
 
@@ -85,9 +89,15 @@ namespace Android.ContinuousStills
             //ImageSaved?.Invoke(this, file.AbsolutePath);
             // Android.Util.Log.Info("SubC", $"+++> Image {index} acquired");
             QueueSave.WriteJpeg(image, GetStillFile());
-            Android.Util.Log.Info("SubC", $"+++> Image {index} saved");
+            // Android.Util.Log.Info("SubC", $"+++> Image {index} saved");
 
             isSaving = false;
+
+            var t = (DateTime.Now - timeSinceLastSave).TotalMilliseconds;
+
+            timeSinceLastSave = DateTime.Now;
+
+            Android.Util.Log.Info("SubC", $"Info: Still FPS: {runningAverage.Add(1000 / t)}");
 
             // image.Close();
         }
