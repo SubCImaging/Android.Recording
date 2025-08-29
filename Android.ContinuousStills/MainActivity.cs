@@ -34,8 +34,9 @@ namespace Android.ContinuousStills
 
         private string baseDirectory;
         private CameraDevice camera;
+        private MediaCapture capturer;
         private CameraCaptureSession captureSession;
-        private int framerate = 10;
+        private int framerate = 1;
         private ImageReader imageReader;
         private ImageSaver imageSaver;
 
@@ -43,7 +44,6 @@ namespace Android.ContinuousStills
 
         //private bool isCancelled;
         private Size[] jpegSizes;
-        private MediaCapture capturer;
 
         private Button picture;
         private AutoFitTextureView preview;
@@ -176,11 +176,12 @@ namespace Android.ContinuousStills
             // var jpegSize = jpegSizes.FirstOrDefault(s => s.Width == 1920 && s.Height == 1080) ?? jpegSizes[0];
             var jpegSize = jpegSizes[0];
 
-            imageReader = ImageReader.NewInstance(jpegSize.Width, jpegSize.Height, ImageFormatType.Jpeg, 20);
+            //imageReader = ImageReader.NewInstance(jpegSize.Width, jpegSize.Height, ImageFormatType.Jpeg, 20);
+            imageReader = ImageReader.NewInstance(jpegSize.Width, jpegSize.Height, ImageFormatType.Yuv420888, 20);
 
             baseDirectory = $"{Camera.MainActivity.StorageLocation}/{Camera.MainActivity.GetStoragePoint()}/DCIM";
 
-            imageSaver = new ImageSaver(baseDirectory);//, imageReader);
+            imageSaver = new ImageSaver(baseDirectory, true, jpegSize);//, imageReader);
             // imageSaver.ImageFailed += ImageSaver_ImageFailed;
 
             var stillThread = new HandlerThread("StillThread");
@@ -220,7 +221,6 @@ namespace Android.ContinuousStills
             // start streaming
             capturer.Open(mConfig, null);
             capturer.StartStreaming();
-
 
             await InitializePreviewAsync(framerate, new Surface(preview.SurfaceTexture), imageReader.Surface, capturer.Surface);
         }
@@ -364,8 +364,6 @@ namespace Android.ContinuousStills
 
             var previewSurface = new Surface(preview.SurfaceTexture);
 
-            
-
             builder.AddTarget(previewSurface);
             builder.AddTarget(capturer.Surface);
             // builder.Set(CaptureRequest.ControlAeTargetFpsRange, new Android.Util.Range(fps, fps));
@@ -384,6 +382,12 @@ namespace Android.ContinuousStills
             var sessionThread = new HandlerThread("SessionThread");
             sessionThread.Start();
             var sessionHandler = new Handler(sessionThread.Looper);
+
+            //while (true)
+            //{
+            //    captureSession.Capture(request, null, null);
+            //    await Task.Delay(100);
+            //}
 
             captureSession.SetRepeatingRequest(request, callback, sessionHandler);
         }

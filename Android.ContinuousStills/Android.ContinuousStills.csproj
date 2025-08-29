@@ -68,6 +68,7 @@
   <ItemGroup>
     <Compile Include="AndroidSerial.cs" />
     <Compile Include="ImageSaver.cs" />
+    <Compile Include="ImageUtils.cs" />
     <Compile Include="MainActivity.cs" />
     <Compile Include="QueueSave.cs" />
     <Compile Include="Resources\Resource.designer.cs" />
